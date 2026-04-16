@@ -114,7 +114,7 @@
         .map-panel { flex: 1; position: relative; min-width: 0; }
         #map { width: 100%; height: 100%; }
 
-        /* Leaderboard button (top-right of map - visible everywhere) */
+        /* Leaderboard button - top right of map */
         #leaderboard-btn {
             position: absolute;
             top: 14px;
@@ -122,13 +122,12 @@
             background: rgba(10,10,30,0.95);
             color: #ff0;
             border: 3px solid #ff0;
-            padding: 8px 14px;
-            font-size: 0.78rem;
+            padding: 8px 12px;
+            font-size: 1.1rem;
             font-family: 'Press Start 2P', system-ui;
             cursor: pointer;
             z-index: 1100;
             box-shadow: 0 0 15px #ff0;
-            white-space: nowrap;
         }
         #leaderboard-btn:hover { background: #ff0; color: #111133; }
 
@@ -162,20 +161,32 @@
         }
         button:hover { background: #0f0; color: #111133; }
 
+        /* Popups - properly sized for mobile and desktop */
         .result, #end-screen {
             position: absolute;
-            top: 20px;
+            top: 50%;
             left: 50%;
-            transform: translateX(-50%);
+            transform: translate(-50%, -50%);
             background: rgba(10,10,30,0.98);
-            padding: 30px 50px;
+            padding: 25px 40px;
             border: 4px solid #0f0;
             border-radius: 8px;
             text-align: center;
             z-index: 3000;
             box-shadow: 0 0 40px #0f0;
+            max-width: 92%;
+            max-height: 88vh;
+            overflow-y: auto;
             display: none;
         }
+        @media (max-width: 900px) {
+            .result, #end-screen {
+                padding: 20px 25px;
+                max-width: 94%;
+                font-size: 0.92rem;
+            }
+        }
+
         .footer {
             text-align: center;
             padding: 10px;
@@ -187,7 +198,7 @@
             justify-content: center;
             gap: 20px;
         }
-        .info { margin-top: 0; }
+        .info { margin-top: 0; font-size: 0.9rem; line-height: 1.4; }
 
         /* Desktop leaderboard auto-scroll */
         #highscore-list-container {
@@ -217,12 +228,8 @@
             color: #0f0;
             font-size: 0.85rem;
             line-height: 1.45;
-            scrollbar-width: thin;
-            scrollbar-color: #0f0 #111133;
         }
         #highscores-scroll:hover { overflow-y: auto; }
-        #highscores-scroll::-webkit-scrollbar { width: 6px; }
-        #highscores-scroll::-webkit-scrollbar-thumb { background-color: #0f0; border-radius: 20px; }
 
         #logos-container {
             flex: 0 0 20%;
@@ -237,7 +244,7 @@
             image-rendering: pixelated;
         }
 
-        /* Fullscreen preview - fixed forever */
+        /* Fullscreen preview */
         #fullscreen-preview {
             display: none;
             position: fixed;
@@ -308,9 +315,14 @@
                 margin-bottom: 8px;
             }
             #banner-bottom { display: none; }
-            #leaderboard-btn { top: 12px; right: 12px; font-size: 0.75rem; padding: 6px 12px; }
+            #leaderboard-btn {
+                top: 12px;
+                right: 12px;
+                font-size: 1.3rem;
+                padding: 6px 10px;
+            }
             .info {
-                font-size: 0.78rem;
+                font-size: 0.75rem;
                 line-height: 1.3;
             }
             .footer { display: none !important; }
@@ -374,7 +386,7 @@
             <div id="map"></div>
 
             <!-- Leaderboard button - top right of map -->
-            <button id="leaderboard-btn" onclick="showLeaderboardPopup()">🏆 LB</button>
+            <button id="leaderboard-btn" onclick="showLeaderboardPopup()">🏆</button>
 
             <button id="mute-btn">🔊 MUSIC ON</button>
             <div class="controls">
@@ -776,28 +788,30 @@
             }
         }
 
-        // Auto-scroll leaderboard on desktop
+        // Auto-scroll leaderboard on desktop after 2-3 seconds
         function startLeaderboardScroll() {
             const scrollContainer = document.getElementById('highscores-scroll');
             if (!scrollContainer) return;
             let scrollSpeed = 0.8;
-            let scrollInterval = setInterval(() => {
-                if (scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight - 5) {
-                    scrollContainer.scrollTop = 0;
-                } else {
-                    scrollContainer.scrollTop += scrollSpeed;
-                }
-            }, 30);
-            scrollContainer.addEventListener('mouseenter', () => clearInterval(scrollInterval));
-            scrollContainer.addEventListener('mouseleave', () => {
-                scrollInterval = setInterval(() => {
+            setTimeout(() => {
+                let scrollInterval = setInterval(() => {
                     if (scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight - 5) {
                         scrollContainer.scrollTop = 0;
                     } else {
                         scrollContainer.scrollTop += scrollSpeed;
                     }
                 }, 30);
-            });
+                scrollContainer.addEventListener('mouseenter', () => clearInterval(scrollInterval));
+                scrollContainer.addEventListener('mouseleave', () => {
+                    scrollInterval = setInterval(() => {
+                        if (scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight - 5) {
+                            scrollContainer.scrollTop = 0;
+                        } else {
+                            scrollContainer.scrollTop += scrollSpeed;
+                        }
+                    }, 30);
+                });
+            }, 2500);
         }
 
         function showLeaderboardPopup() {
@@ -968,8 +982,8 @@
             supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
             loadHighscores();
 
-            // Start auto-scroll for desktop leaderboard
-            setTimeout(startLeaderboardScroll, 800);
+            // Start auto-scroll leaderboard after 2.5 seconds
+            setTimeout(startLeaderboardScroll, 2500);
 
             mapInstance.on('click', function autoStart() {
                 if (bgMusic.paused && !isMusicMuted) bgMusic.play().catch(() => {});
