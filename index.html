@@ -251,35 +251,47 @@
             z-index: 5100;
             box-shadow: 0 0 20px #0f0;
         }
+
         /* ====================== MOBILE RESPONSIVE ====================== */
         @media (max-width: 900px) {
             .game-container { flex-direction: column; }
-		/* HEADER FULLY VISIBLE ON MOBILE */
+
+            /* Hide normal title on mobile and show banner instead */
+            header h1 {
+                display: none;
+            }
+
+            #mobile-header-banner {
+                width: 100%;
+                height: 68px;
+                object-fit: contain;
+                margin: 4px 0 6px 0;
+            }
+
             header {
-                padding: 12px 8px;
+                padding: 10px 8px 6px;
                 flex-shrink: 0;
             }
-            h1 {
-                font-size: 0.225rem;     /* smaller title ONLY on mobile */
-                line-height: 0.5;
-		margin-bottom: 4px;      /* reduce space between title and round line */
-            }
+
             header p {
-                font-size: 0.55rem;     /* much smaller round/score text ONLY on mobile */
+                font-size: 0.78rem;
                 margin-top: 4px;
             }
+
             .view-panel {
                 width: 100% !important;
                 border-right: none;
                 border-bottom: 4px solid #0f0;
-                max-height: 52vh;
+                max-height: 53vh;
                 overflow-y: auto;
                 padding: 10px 10px 6px;
             }
+
             .map-panel {
                 flex: 1;
-                min-height: 46vh;
+                min-height: 45vh;
             }
+
             #banner-top { height: 62px; }
             .panorama-container {
                 max-height: 205px;
@@ -287,17 +299,19 @@
                 margin-top: 0;
                 margin-bottom: 8px;
             }
+
             #banner-bottom {
                 height: auto;
                 max-height: 118px;
                 padding: 4px 0;
                 margin-top: 8px;
             }
+
             #highscore-header { font-size: 0.72rem; height: 32px; }
             #highscores-scroll { font-size: 0.78rem; padding: 6px 10px; }
             #logos-container { display: none; }
 
-            /* REMOVE FOOTER ON MOBILE ONLY */
+            /* Hide footer on mobile */
             .footer {
                 display: none !important;
             }
@@ -308,12 +322,14 @@
                 gap: 12px;
             }
             button { padding: 10px 22px; font-size: 0.96rem; }
+
             #mute-btn {
                 padding: 9px 14px;
                 font-size: 0.9rem;
                 bottom: 15px;
                 left: 15px;
             }
+
             .result, #end-screen {
                 top: 15px;
                 padding: 20px 25px;
@@ -328,16 +344,16 @@
                 font-size: 1rem;
             }
         }
+
         @media (max-width: 480px) {
             .panorama-container { max-height: 188px; }
-            .view-panel { max-height: 50vh; }
-            h1 { font-size: 1.6rem; }
+            .view-panel { max-height: 51vh; }
         }
     </style>
 </head>
 <body>
     <header>
-        <h1>THE ISLE: EVRIMA<br>GEOGUESSR</h1>
+        <img id="mobile-header-banner" src="mobilebanner.png" alt="The Isle Evrima GeoGuessr">
         <p>Round <span id="round-num">1</span>/10 — Total Score: <span id="total-score">0</span></p>
     </header>
     <div class="game-container">
@@ -551,6 +567,7 @@
         let supabaseClient;
         let pendingUserId = null;
         let pendingScore = 0;
+
         function generateRandomString(length) {
             let text = '';
             const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -569,6 +586,7 @@
                 .replace(/\//g, '_')
                 .replace(/=+$/, '');
         }
+
         function initMap() {
             mapInstance = L.map('map', { crs: L.CRS.Simple, minZoom: -5, maxZoom: 6, zoomSnap: 0.25 });
             const img = new Image();
@@ -588,15 +606,18 @@
                 });
             };
         }
+
         function resetMapView() {
             if (mapInstance && initialCenter) mapInstance.flyTo(initialCenter, initialZoom, { duration: 1.8, easeLinearity: 0.25 });
         }
+
         function toggleMusic() {
             isMusicMuted = !isMusicMuted;
             const btn = document.getElementById('mute-btn');
             if (isMusicMuted) { bgMusic.pause(); btn.textContent = '🔇 MUSIC OFF'; }
             else { bgMusic.play().catch(() => {}); btn.textContent = '🔊 MUSIC ON'; }
         }
+
         function playSoundEffect(quality) {
             let audio;
             if (quality === "PERFECT!" || quality === "EXCELLENT" || quality === "GREAT") audio = document.getElementById('sfx1');
@@ -604,10 +625,12 @@
             else audio = document.getElementById('sfx3');
             if (audio) { audio.currentTime = 0; audio.play().catch(() => {}); }
         }
+
         function playSFX(sfxId) {
             const audio = document.getElementById(sfxId);
             if (audio) { audio.currentTime = 0; audio.play().catch(() => {}); }
         }
+
         function startNewRound() {
             if (currentRound >= MAX_ROUNDS) { showEndScreen(); return; }
             currentRound++;
@@ -632,9 +655,11 @@
             document.getElementById('result-panel').style.display = 'none';
             resetMapView();
         }
+
         function clearMarkers() {
             [guessMarker, correctMarker, lineLayer, circleLayer].forEach(l => { if (l) mapInstance.removeLayer(l); });
         }
+
         function submitGuess() {
             if (guessLat === null || guessLng === null || !currentLocation || hasSubmitted) return;
             hasSubmitted = true;
@@ -666,11 +691,13 @@
             const group = L.featureGroup([guessMarker || guessPos, correctMarker]);
             mapInstance.fitBounds(group.getBounds().pad(0.35), { animate: true, duration: 1.2, maxZoom: 3 });
         }
+
         function hideResultAndNext() {
             document.getElementById('result-panel').style.display = 'none';
             startNewRound();
         }
         function nextRound() { hideResultAndNext(); }
+
         function showEndScreen(isSaved = false) {
             const endScreen = document.getElementById('end-screen');
             let gotNewHighScore = false;
@@ -687,6 +714,7 @@
             endScreen.style.display = 'block';
             if (gotNewHighScore) playSFX('sfx6'); else playSFX('sfx5');
         }
+
         function playAgain() {
             playSFX('sfx4');
             document.getElementById('end-screen').style.display = 'none';
@@ -695,6 +723,7 @@
             remainingLocations = [...LOCATIONS];
             startNewRound();
         }
+
         function clearHighScore() {
             if (confirm('Delete all saved high scores?')) {
                 localStorage.removeItem('evrimaHighScore');
@@ -702,6 +731,7 @@
                 document.getElementById('high-score-display').textContent = '0';
             }
         }
+
         async function loadHighscores() {
             const container = document.getElementById('highscores-scroll');
             container.innerHTML = '🔄 Loading leaderboard...';
@@ -730,10 +760,12 @@
                 container.innerHTML = `<div style="color:#f44; text-align:center;">Failed to load scores<br><small>${err.message}</small></div>`;
             }
         }
+
         async function submitScore(userId, score, displayName) {
             const { error } = await supabaseClient.from(TABLE_NAME).insert({ user_id: userId, score: score, display_name: displayName });
             return !error;
         }
+
         function submitWithCustomName() {
             const nameInput = document.getElementById('player-name-input').value.trim();
             if (!nameInput) { alert("Please enter a name!"); return; }
@@ -752,12 +784,14 @@
                 pendingScore = 0;
             });
         }
+
         function cancelNamePrompt() {
             document.getElementById('name-prompt-section').style.display = 'none';
             document.getElementById('save-score-section').style.display = 'block';
             pendingUserId = null;
             pendingScore = 0;
         }
+
         async function loginWithProvider(provider) {
             localStorage.setItem('pendingEvrimaScore', totalScore.toString());
             const redirectTo = window.location.href;
@@ -780,6 +814,7 @@
                 localStorage.removeItem('pendingEvrimaScore');
             }
         }
+
         window.addEventListener('message', async (event) => {
             if (event.origin !== window.location.origin) return;
             if (event.data && event.data.type === 'SUPABASE_AUTH_CALLBACK') {
@@ -797,15 +832,18 @@
                 }
             }
         });
+
         function openFullscreen() {
             const preview = document.getElementById('fullscreen-preview');
             const img = document.getElementById('fullscreen-image');
             img.src = document.getElementById('panorama').src;
             preview.style.display = 'flex';
         }
+
         function closeFullscreen() {
             document.getElementById('fullscreen-preview').style.display = 'none';
         }
+
         window.onload = async function () {
             const isPopupCallback = window.opener !== null && (window.location.hash.includes('access_token') || window.location.search.includes('code=') || window.location.search.includes('error='));
             if (isPopupCallback) {
@@ -821,23 +859,29 @@
                 setTimeout(() => { window.close(); }, 800);
                 return;
             }
+
             initMap();
             remainingLocations = [...LOCATIONS];
             bgMusic = document.getElementById('bg-music');
             bgMusic.volume = 0.25;
             bgMusic.play().catch(() => {});
             document.getElementById('mute-btn').addEventListener('click', toggleMusic);
+
             const { createClient } = supabase;
             supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
             loadHighscores();
+
             mapInstance.on('click', function autoStart() {
                 if (bgMusic.paused && !isMusicMuted) bgMusic.play().catch(() => {});
                 mapInstance.off('click', autoStart);
             });
+
             const panoramaContainer = document.getElementById('panorama-container');
             panoramaContainer.addEventListener('click', openFullscreen);
             panoramaContainer.addEventListener('touchstart', (e) => { if (e.touches.length === 1) openFullscreen(); }, { passive: true });
+
             setTimeout(startNewRound, 600);
+
             window.addEventListener('resize', () => {
                 if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
             });
