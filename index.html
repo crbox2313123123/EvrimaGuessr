@@ -229,19 +229,20 @@
 
     <!-- Supabase Auth Callback Handler -->
     <script>
-        if (window.opener && (window.location.hash.includes('access_token') || window.location.search.includes('code='))) {
+        // Handle Supabase OAuth callback in popup
+        if (window.opener && (window.location.hash || window.location.search)) {
             const { createClient } = supabase;
             const tempClient = createClient(
                 'https://cgufpeetcjywisqvhqlk.supabase.co',
                 'sb_publishable_lsNrJO_6cRlkTMPz7PkLzw_yQCwj0ig'
             );
 
-            tempClient.auth.getSession().then(({ data: { session } }) => {
-                if (session) {
+            tempClient.auth.getSession().then(({ data }) => {
+                if (data.session) {
                     window.opener.postMessage({
                         type: 'SUPABASE_AUTH_CALLBACK',
                         success: true,
-                        session: session
+                        session: data.session
                     }, '*');
                 } else {
                     window.opener.postMessage({
@@ -249,13 +250,13 @@
                         success: false
                     }, '*');
                 }
-                setTimeout(() => window.close(), 1000);
+                setTimeout(() => window.close(), 800);
             }).catch(() => {
                 window.opener.postMessage({
                     type: 'SUPABASE_AUTH_CALLBACK',
                     success: false
                 }, '*');
-                setTimeout(() => window.close(), 1000);
+                setTimeout(() => window.close(), 800);
             });
         }
     </script>
