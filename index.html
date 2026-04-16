@@ -226,6 +226,40 @@
     <audio id="sfx4" preload="auto"><source src="sfx4.wav" type="audio/mpeg"></audio>
     <audio id="sfx5" preload="auto"><source src="sfx5.wav" type="audio/mpeg"></audio>
     <audio id="sfx6" preload="auto"><source src="sfx6.wav" type="audio/mpeg"></audio>
+
+    <!-- Supabase Auth Callback Handler -->
+    <script>
+        if (window.opener && (window.location.hash.includes('access_token') || window.location.search.includes('code='))) {
+            const { createClient } = supabase;
+            const tempClient = createClient(
+                'https://cgufpeetcjywisqvhqlk.supabase.co',
+                'sb_publishable_lsNrJO_6cRlkTMPz7PkLzw_yQCwj0ig'
+            );
+
+            tempClient.auth.getSession().then(({ data: { session } }) => {
+                if (session) {
+                    window.opener.postMessage({
+                        type: 'SUPABASE_AUTH_CALLBACK',
+                        success: true,
+                        session: session
+                    }, '*');
+                } else {
+                    window.opener.postMessage({
+                        type: 'SUPABASE_AUTH_CALLBACK',
+                        success: false
+                    }, '*');
+                }
+                setTimeout(() => window.close(), 1000);
+            }).catch(() => {
+                window.opener.postMessage({
+                    type: 'SUPABASE_AUTH_CALLBACK',
+                    success: false
+                }, '*');
+                setTimeout(() => window.close(), 1000);
+            });
+        }
+    </script>
+
     <!-- Supabase + Leaflet -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -617,22 +651,11 @@
                 }
             }
 
-window.addEventListener('message', async (event) => {
-    console.log('=== AUTH MESSAGE RECEIVED ===');
-    console.log('Origin from popup:', event.origin);
-    console.log('Our page origin:', window.location.origin);
-    console.log('Full message data:', event.data);
-
-    if (event.origin !== window.location.origin) {
-        console.log('→ Origin mismatch - ignoring');
-        return;
-    }
+window.addEventListener('message', (event) => {
+    if (event.origin !== window.location.origin) return;
 
     if (event.data && event.data.type === 'SUPABASE_AUTH_CALLBACK') {
         const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
-        console.log('Pending score in localStorage:', pendingScoreStr);
-        console.log('Success flag:', event.data.success);
-        console.log('Session received:', event.data.session ? 'YES' : 'NO');
 
         if (event.data.success && event.data.session && pendingScoreStr) {
             pendingUserId = event.data.session.user.id;
@@ -642,11 +665,9 @@ window.addEventListener('message', async (event) => {
             document.getElementById('save-score-section').style.display = 'none';
             document.getElementById('name-prompt-section').style.display = 'block';
             document.getElementById('player-name-input').focus();
-            console.log('→ LOGIN SUCCESS - showing name prompt');
         } else {
             localStorage.removeItem('pendingEvrimaScore');
-            console.log('→ LOGIN FAILED in callback');
-            alert('Login failed or was cancelled.\n\nCheck the browser console (F12 → Console tab) and tell me what it says.');
+            alert('Login failed or was cancelled.\n\nPlease try again.');
         }
     }
 });
