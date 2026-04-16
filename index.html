@@ -114,6 +114,7 @@
         .map-panel { flex: 1; position: relative; min-width: 0; }
         #map { width: 100%; height: 100%; }
 
+        /* Leaderboard button - top right of map */
         #leaderboard-btn {
             position: absolute;
             top: 14px;
@@ -160,6 +161,7 @@
         }
         button:hover { background: #0f0; color: #111133; }
 
+        /* Popups - properly sized */
         .result, #end-screen {
             position: absolute;
             top: 50%;
@@ -196,8 +198,16 @@
             justify-content: center;
             gap: 20px;
         }
-        .info { margin-top: 0; font-size: 0.9rem; line-height: 1.4; }
+        .info { 
+            margin-top: 0; 
+            font-size: 0.9rem; 
+            line-height: 1.4; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between;
+        }
 
+        /* Desktop leaderboard auto-scroll */
         #highscore-list-container {
             flex: 0 0 80%;
             display: flex;
@@ -242,6 +252,7 @@
             cursor: pointer;
         }
 
+        /* Fullscreen preview */
         #fullscreen-preview {
             display: none;
             position: fixed;
@@ -275,6 +286,7 @@
             box-shadow: 0 0 20px #0f0;
         }
 
+        /* Mobile round/score text on top of map - 35% smaller */
         #mobile-round-info {
             position: absolute;
             top: 14px;
@@ -292,6 +304,7 @@
             display: none;
         }
 
+        /* Mobile responsive - NO mid-match login button */
         @media (max-width: 900px) {
             .game-container { flex-direction: column; }
             header h1 { display: none; }
@@ -327,7 +340,7 @@
                 font-size: 1.3rem;
                 padding: 6px 10px;
             }
-            .info { display: none; }
+            .info { display: block; }
             .footer { display: none !important; }
             .controls {
                 padding: 9px 20px;
@@ -351,13 +364,17 @@
             }
             #desktop-round-info { display: none; }
             #mobile-round-info { display: block; }
+            #desktop-login-btn { display: none !important; }
         }
         @media (max-width: 480px) {
             .panorama-container { max-height: 188px; }
             .view-panel { max-height: 47vh; }
         }
+
+        /* Desktop keeps original header text + shows mid-match login button */
         @media (min-width: 901px) {
             #mobile-round-info { display: none; }
+            #desktop-login-btn { display: inline-block; }
         }
     </style>
 </head>
@@ -386,8 +403,15 @@
                 </div>
             </div>
             <div class="info">
-                <strong>Where are you on the island?</strong><br>
-                Click the map → place your guess
+                <div>
+                    <strong>Where are you on the island?</strong><br>
+                    Click the map → place your guess
+                </div>
+                <!-- Desktop-only mid-match login button -->
+                <button id="desktop-login-btn" onclick="handleManualLogin()" 
+                        style="background:#4285F4; color:white; border:3px solid #4285F4; padding:6px 14px; font-size:0.8rem; white-space:nowrap; margin-left:12px;">
+                    🔑 LOGIN
+                </button>
             </div>
         </div>
         <div class="map-panel">
@@ -439,11 +463,13 @@
         Evrima GeoGuessr • Made by kAzin • High score saved locally
     </div>
 
+    <!-- FULLSCREEN PANORAMA PREVIEW -->
     <div id="fullscreen-preview">
         <div id="fullscreen-close" onclick="closeFullscreen()">✕</div>
         <img id="fullscreen-image" src="" alt="Fullscreen Evrima View">
     </div>
 
+    <!-- AUDIO -->
     <audio id="bg-music" loop preload="auto"><source src="background-music.mp3" type="audio/mpeg"></audio>
     <audio id="sfx1" preload="auto"><source src="sfx1.wav" type="audio/wav"></audio>
     <audio id="sfx2" preload="auto"><source src="sfx2.mp3" type="audio/mpeg"></audio>
@@ -451,24 +477,6 @@
     <audio id="sfx4" preload="auto"><source src="sfx4.wav" type="audio/mpeg"></audio>
     <audio id="sfx5" preload="auto"><source src="sfx5.wav" type="audio/mpeg"></audio>
     <audio id="sfx6" preload="auto"><source src="sfx6.wav" type="audio/mpeg"></audio>
-
-    <script>
-        if (window.opener && (window.location.hash || window.location.search)) {
-            const { createClient } = supabase;
-            const tempClient = createClient('https://cgufpeetcjywisqvhqlk.supabase.co', 'sb_publishable_lsNrJO_6cRlkTMPz7PkLzw_yQCwj0ig');
-            tempClient.auth.getSession().then(({ data }) => {
-                if (data.session) {
-                    window.opener.postMessage({ type: 'SUPABASE_AUTH_CALLBACK', success: true, session: data.session }, '*');
-                } else {
-                    window.opener.postMessage({ type: 'SUPABASE_AUTH_CALLBACK', success: false }, '*');
-                }
-                setTimeout(() => window.close(), 800);
-            }).catch(() => {
-                window.opener.postMessage({ type: 'SUPABASE_AUTH_CALLBACK', success: false }, '*');
-                setTimeout(() => window.close(), 800);
-            });
-        }
-    </script>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -479,7 +487,7 @@
         const SUPABASE_ANON_KEY = 'sb_publishable_lsNrJO_6cRlkTMPz7PkLzw_yQCwj0ig';
         const TABLE_NAME = 'evrima_scores';
 
-        const LOCATIONS = [ /* your full 100 locations unchanged */ 
+        const LOCATIONS = [
             { id: 1, image: 'ss1.png', coord: [1160, 2061] },
             { id: 2, image: 'ss2.png', coord: [685.5, 1325.9] },
             { id: 3, image: 'ss3.png', coord: [975.8, 1450.2] },
@@ -603,6 +611,7 @@
         let pendingUserId = null;
         let pendingScore = 0;
         let currentDisplayName = null;
+        let isLoggedIn = false;
 
         function generateRandomString(length) {
             let text = '';
@@ -624,6 +633,7 @@
         }
 
         function submitScreenshot() {
+            console.log('🔗 Opening Discord screenshot channel');
             window.open('https://discord.gg/tXt3HW45Sq', '_blank');
         }
 
@@ -738,8 +748,9 @@
         }
         function nextRound() { hideResultAndNext(); }
 
-        // FIXED: Proper persistent login logic in end screen
+        // NEW BULLETPROOF END-SCREEN LOGIC
         function showEndScreen(isSaved = false) {
+            console.log('=== SHOW END SCREEN === pendingUserId:', pendingUserId, 'isLoggedIn:', isLoggedIn);
             const endScreen = document.getElementById('end-screen');
             let gotNewHighScore = false;
             if (totalScore > highScore) {
@@ -750,16 +761,16 @@
             document.getElementById('final-score').textContent = totalScore;
             document.getElementById('high-score-display').textContent = highScore;
 
-            // Real check for already logged in user
-            if (pendingUserId) {
-                // Already logged in → skip login buttons, go straight to name prompt
+            // BULLETPROOF CHECK: if already logged in, skip login buttons completely
+            if (pendingUserId || isLoggedIn) {
+                console.log('✅ Already logged in - skipping login prompt');
                 document.getElementById('save-score-section').style.display = 'none';
                 document.getElementById('name-prompt-section').style.display = 'block';
                 const nameInput = document.getElementById('player-name-input');
                 nameInput.value = currentDisplayName || '';
                 nameInput.focus();
             } else {
-                // First time → show login buttons
+                console.log('🔑 Not logged in - showing login buttons');
                 document.getElementById('save-score-section').style.display = 'block';
                 document.getElementById('name-prompt-section').style.display = 'none';
             }
@@ -814,7 +825,7 @@
             }
         }
 
-        // Reliable slow scroll even with 16 entries
+        // Reliable slow scroll (works with 16+ entries)
         function startLeaderboardScroll() {
             const scrollContainer = document.getElementById('highscores-scroll');
             if (!scrollContainer) return;
@@ -915,8 +926,15 @@
             pendingScore = 0;
         }
 
-        async function loginWithProvider(provider) {
+        // NEW MANUAL LOGIN FOR DESKTOP MID-MATCH
+        async function handleManualLogin() {
+            console.log('=== MANUAL LOGIN CLICKED (desktop) ===');
             localStorage.setItem('pendingEvrimaScore', totalScore.toString());
+            await loginWithProvider('discord'); // default to Discord - change if you prefer Google
+        }
+
+        async function loginWithProvider(provider) {
+            console.log(`=== STARTING ${provider.toUpperCase()} LOGIN ===`);
             const redirectTo = window.location.origin;
             const codeVerifier = generateRandomString(64);
             const codeChallenge = base64urlencode(await sha256(codeVerifier));
@@ -935,9 +953,14 @@
             const left = window.screenX + (window.outerWidth - width) / 2;
             const top = window.screenY + (window.outerHeight - height) / 2;
 
-            const popup = window.open(authorizeUrl.toString(), `supabase-${provider}-popup`, `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes`);
+            const popup = window.open(
+                authorizeUrl.toString(),
+                `supabase-${provider}-popup`,
+                `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes`
+            );
 
             if (popup === null) {
+                console.error('Popup blocked');
                 alert('Popup was blocked. Please allow popups and try again.');
                 localStorage.removeItem('pendingEvrimaScore');
             }
@@ -945,31 +968,46 @@
 
         window.addEventListener('message', (event) => {
             if (event.origin !== window.location.origin) return;
+            console.log('=== AUTH MESSAGE RECEIVED ===', event.data);
             if (event.data && event.data.type === 'SUPABASE_AUTH_CALLBACK') {
                 const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
                 if (event.data.success && event.data.session && pendingScoreStr) {
+                    console.log('✅ LOGIN SUCCESS - setting pendingUserId');
                     pendingUserId = event.data.session.user.id;
+                    isLoggedIn = true;
                     pendingScore = parseInt(pendingScoreStr);
                     localStorage.removeItem('pendingEvrimaScore');
                     document.getElementById('save-score-section').style.display = 'none';
                     document.getElementById('name-prompt-section').style.display = 'block';
                     document.getElementById('player-name-input').focus();
                 } else {
+                    console.log('❌ LOGIN FAILED');
                     localStorage.removeItem('pendingEvrimaScore');
                     alert('Login failed or was cancelled.\n\nPlease try again.');
                 }
             }
         });
 
+        // BULLETPROOF persistent login check
         async function checkPersistentLogin() {
+            console.log('=== CHECKING PERSISTENT LOGIN ===');
             try {
                 const { data: { session } } = await supabaseClient.auth.getSession();
+                console.log('Session from Supabase:', session ? 'EXISTS' : 'NONE');
                 if (session && session.user) {
                     pendingUserId = session.user.id;
+                    isLoggedIn = true;
                     const savedName = localStorage.getItem('evrimaLastDisplayName');
                     if (savedName) currentDisplayName = savedName;
+                    console.log('✅ USER IS ALREADY LOGGED IN - ID:', pendingUserId);
+                } else {
+                    console.log('❌ No active session');
+                    isLoggedIn = false;
+                    pendingUserId = null;
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.error('Session check failed:', e);
+            }
         }
 
         function openFullscreen() {
@@ -1009,7 +1047,8 @@
             const { createClient } = supabase;
             supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            await checkPersistentLogin();   // This now actually works with the end screen
+            // Bulletproof persistent login
+            await checkPersistentLogin();
 
             loadHighscores();
             setTimeout(startLeaderboardScroll, 2500);
@@ -1028,6 +1067,8 @@
             window.addEventListener('resize', () => {
                 if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
             });
+
+            console.log('🚀 GAME LOADED - Persistent login check complete');
         };
     </script>
 </body>
