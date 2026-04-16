@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Isle: Evrima GeoGuessr</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Press Start 2P', system-ui;
+            background: #0a0a1f;
+            color: #0f0;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        header {
+            background: #111133;
+            padding: 15px;
+            text-align: center;
+            border-bottom: 4px solid #0f0;
+            box-shadow: 0 0 20px #0f0;
+        }
+        h1 { font-size: 1.8rem; text-shadow: 0 0 10px #0f0; }
+        .game-container { display: flex; flex: 1; overflow: hidden; }
+        .view-panel {
+            width: 42%;
+            background: #05050f;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            border-right: 4px solid #0f0;
+        }
+ 
+        .banner {
+            height: 72px;
+            background: #111133;
+            border: 4px solid #0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            color: #0f0;
+            text-shadow: 0 0 8px #0f0;
+            box-shadow: 0 0 15px #0f0;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        #banner-top {
+            height: 72px;
+            padding: 0;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        #banner-bottom {
+            height: 144px;
+            margin-top: 12px;
+            margin-bottom: 40px;
+            border-top: 4px solid #0f0;
+            border-bottom: none;
+            background: #111133;
+            box-shadow: 0 0 15px #0f0;
+            display: flex;
+            align-items: stretch;
+            padding: 0;
+        }
+        .panorama-container {
+            flex: none;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #000;
+            border: 6px solid #0f0;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 30px #0f0;
+        }
+        #panorama {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            image-rendering: pixelated;
+            opacity: 1;
+            transition: opacity 0.15s ease-in-out;
+        }
+ 
+        .map-panel { flex: 1; position: relative; }
+        #map { width: 100%; height: 100%; }
+        #coord-debug {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(10,10,30,0.95);
+            color: #0f0;
+            padding: 10px 15px;
+            border: 3px solid #0f0;
+            border-radius: 4px;
+            font-size: 1rem;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 0 15px #0f0;
+        }
+        .controls {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(10,10,30,0.95); padding: 12px 30px; border: 4px solid #0f0; border-radius: 8px;
+            display: flex; gap: 15px; box-shadow: 0 0 30px #0f0; z-index: 1000;
+        }
+        #mute-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(10,10,30,0.95);
+            color: #0f0;
+            border: 3px solid #0f0;
+            padding: 10px 18px;
+            font-family: 'Press Start 2P', system-ui;
+            font-size: 0.95rem;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 0 15px #0f0;
+        }
+        #mute-btn:hover { background: #0f0; color: #111133; }
+        button {
+            font-family: 'Press Start 2P', system-ui;
+            padding: 12px 24px;
+            font-size: 1.1rem;
+            background: #111133;
+            color: #0f0;
+            border: 3px solid #0f0;
+            cursor: pointer;
+        }
+        button:hover { background: #0f0; color: #111133; }
+        .result, #end-screen {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10,10,30,0.98);
+            padding: 30px 50px;
+            border: 4px solid #0f0;
+            border-radius: 8px;
+            text-align: center;
+            z-index: 3000;
+            box-shadow: 0 0 40px #0f0;
+            display: none;
+        }
+        .footer {
+            text-align: center;
+            padding: 10px;
+            font-size: 0.8rem;
+            background: #111133;
+            color: #0a0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+        .info { margin-top: 0; }
+        /* === NEW STYLES FOR HIGHSCORE BANNER === */
+        #highscore-list-container {
+            flex: 0 0 80%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-right: 4px solid #0f0;
+        }
+        #highscore-header {
+            height: 38px;
+            background: #0a0a1f;
+            color: #ff0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.78rem;
+            letter-spacing: 2.5px;
+            text-shadow: 0 0 8px #ff0;
+            border-bottom: 3px solid #0f0;
+            text-transform: uppercase;
+        }
+        #highscores-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 18px;
+            color: #0f0;
+            font-size: 0.85rem;
+            line-height: 1.45;
+            scrollbar-width: thin;
+            scrollbar-color: #0f0 #111133;
+        }
+        #highscores-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        #highscores-scroll::-webkit-scrollbar-thumb {
+            background-color: #0f0;
+            border-radius: 20px;
+        }
+        #logos-container {
+            flex: 0 0 20%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #111133;
+            border-left: 4px solid #0f0;
+        }
+        #mini-icon {
+            max-height: 110px;
+            image-rendering: pixelated;
+        }
+        /* === NAME PROMPT STYLES === */
+        #name-prompt-section input {
+            background: #111133;
+            color: #0f0;
+            border: 3px solid #0f0;
+            padding: 12px 20px;
+            width: 100%;
+            font-family: 'Press Start 2P', system-ui;
+            font-size: 1.1rem;
+            text-align: center;
+            margin: 15px 0;
+            box-shadow: 0 0 15px #0f0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>THE ISLE: EVRIMA<br>GEOGUESSR</h1>
+        <p>Round <span id="round-num">1</span>/10 — Total Score: <span id="total-score">0</span></p>
+    </header>
+    <div class="game-container">
+        <div class="view-panel">
+            <div id="banner-top" class="banner">
+                <img src="banner.png" alt="The Isle Evrima Banner" style="width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated;">
+            </div>
+            <div class="panorama-container">
+                <img id="panorama" src="ss0.png" alt="Your location in Evrima">
+            </div>
+            <div id="banner-bottom">
+                <div id="highscore-list-container">
+                    <div id="highscore-header">GLOBAL LEADERBOARD • TOP EVRIMA SCORES</div>
+                    <div id="highscores-scroll">
+                        Loading high scores...
+                    </div>
+                </div>
+                <div id="logos-container">
+                    <img id="mini-icon" src="miniicon.png" alt="Mini Icon">
+                </div>
+            </div>
+            <div class="info">
+                <strong>Where are you on the island?</strong><br>
+                Click the map → place your guess
+            </div>
+        </div>
+        <div class="map-panel">
+            <div id="map"></div>
+    
+            <div id="coord-debug">
+                Clicked at: <span id="coord-text" style="color:#ff0; font-weight:bold;">X: 0 | Y: 0</span>
+            </div>
+            <button id="mute-btn">🔊 MUSIC ON</button>
+            <div class="controls">
+                <button id="submit-btn" onclick="submitGuess()">SUBMIT GUESS</button>
+                <button id="next-btn" onclick="nextRound()" style="display: none;">NEXT ROUND →</button>
+            </div>
+            <div class="result" id="result-panel">
+                <h2 id="result-title" style="color:#0f0; margin-bottom:10px;">ROUND COMPLETE</h2>
+                <p id="distance-text" style="font-size:1.4rem; margin:15px 0;"></p>
+                <p id="points-text" style="font-size:2.2rem; margin:10px 0;"></p>
+                <button onclick="hideResultAndNext()" style="margin-top:15px;">CONTINUE</button>
+            </div>
+            <div id="end-screen">
+                <h2 style="color:#0f0; margin-bottom:20px;">GAME COMPLETE</h2>
+                <p style="font-size:1.3rem;">Your total score:</p>
+                <p id="final-score" style="font-size:3rem; color:#0f0; margin:10px 0;"></p>
+                <p style="font-size:1.2rem;">Personal best: <span id="high-score-display" style="color:#ff0;"></span></p>
+                <!-- === LOGIN SECTION === -->
+                <div id="save-score-section">
+                    <p style="margin:25px 0 15px; font-size:1.1rem;">Save your score to the global leaderboard?</p>
+                    <button onclick="loginWithProvider('google')" style="margin:8px; background:#4285F4; color:white; border-color:#4285F4; width:240px;">🔵 Login with Google</button>
+                    <button onclick="loginWithProvider('discord')" style="margin:8px; background:#5865F2; color:white; border-color:#5865F2; width:240px;">🐙 Login with Discord</button>
+                    <button onclick="playAgain()" style="margin-top:20px; background:#333; border-color:#666;">Play Again Without Saving</button>
+                </div>
+                <!-- === NAME PROMPT SECTION === -->
+                <div id="name-prompt-section" style="display:none;">
+                    <p style="margin:25px 0 10px; font-size:1.1rem;">CHOOSE YOUR LEADERBOARD NAME</p>
+                    <input id="player-name-input" type="text" maxlength="16" placeholder="ENTER NAME (MAX 16)" autocomplete="off">
+                    <button onclick="submitWithCustomName()" style="margin-top:15px; width:100%;">SUBMIT SCORE</button>
+                    <button onclick="cancelNamePrompt()" style="margin-top:8px; background:#330000; border-color:#f00; width:100%;">CANCEL — DON'T SAVE</button>
+                </div>
+                <!-- === SUCCESS SECTION === -->
+                <div id="score-saved-section" style="display:none;">
+                    <p style="color:#0f0; font-size:1.6rem; margin:25px 0;">✅ SCORE SAVED SUCCESSFULLY!</p>
+                </div>
+                <button onclick="playAgain()" style="margin-top:20px; padding:15px 30px; font-size:1.2rem;">PLAY AGAIN</button>
+                <button onclick="clearHighScore()" style="margin-top:10px; background:#330000; border-color:#f00;">Clear High Score</button>
+            </div>
+        </div>
+    </div>
+    <div class="footer">
+        Evrima GeoGuessr • Made by kAzin • High score saved locally
+    </div>
+    <!-- AUDIO -->
+    <audio id="bg-music" loop preload="auto">
+        <source src="background-music.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="sfx1" preload="auto">
+        <source src="sfx1.wav" type="audio/wav">
+    </audio>
+    <audio id="sfx2" preload="auto">
+        <source src="sfx2.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="sfx3" preload="auto">
+        <source src="sfx3.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="sfx4" preload="auto">
+        <source src="sfx4.wav" type="audio/mpeg">
+    </audio>
+    <audio id="sfx5" preload="auto">
+        <source src="sfx5.wav" type="audio/mpeg">
+    </audio>
+    <audio id="sfx6" preload="auto">
+        <source src="sfx6.wav" type="audio/mpeg">
+    </audio>
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const MAP_IMAGE = 'firstdraft.png';
+        const MAX_ROUNDS = 10;
+        const SUPABASE_URL = 'https://cgufpeetcjywisqvhqlk.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_lsNrJO_6cRlkTMPz7PkLzw_yQCwj0ig';
+        const TABLE_NAME = 'evrima_scores';
+        const LOCATIONS = [
+            { id: 1, image: 'ss1.png', coord: [1160, 2061] },
+            { id: 2, image: 'ss2.png', coord: [685.5, 1325.9] },
+            { id: 3, image: 'ss3.png', coord: [975.8, 1450.2] },
+            { id: 4, image: 'ss4.png', coord: [837.3, 1185.9] },
+            { id: 5, image: 'ss5.png', coord: [1193.6, 1278.9] },
+            { id: 6, image: 'ss6.png', coord: [1067, 1531.5] },
+            { id: 7, image: 'ss7.png', coord: [840.5, 1780.2] },
+            { id: 8, image: 'ss8.png', coord: [2061, 2899.8] },
+            { id: 9, image: 'ss9.png', coord: [1883.3, 2767.3] },
+            { id: 10, image: 'ss10.png', coord: [829.8, 1299.5] },
+            { id: 11, image: 'ss11.png', coord: [717.8, 1232.5] },
+            { id: 12, image: 'ss12.png', coord: [689.5, 1195.6] },
+            { id: 13, image: 'ss13.png', coord: [760.6, 1334.3] },
+            { id: 14, image: 'ss14.png', coord: [1920.6, 2253.9] },
+            { id: 15, image: 'ss15.png', coord: [1930.3, 2176.9] },
+            { id: 16, image: 'ss16.png', coord: [1821.4, 2390.3] },
+            { id: 17, image: 'ss17.png', coord: [1837.4, 2651.6] },
+            { id: 18, image: 'ss18.png', coord: [1945.5, 2959.3] },
+            { id: 19, image: 'ss19.png', coord: [1763, 2856.1] },
+            { id: 20, image: 'ss20.png', coord: [2046.3, 2923.1] },
+            { id: 21, image: 'ss21.png', coord: [1714.5, 2888.3] },
+            { id: 22, image: 'ss22.png', coord: [1468.3, 2598.1] },
+            { id: 23, image: 'ss23.png', coord: [1611.7, 2679.2] },
+            { id: 24, image: 'ss24.png', coord: [1767.7, 2818.4] },
+            { id: 25, image: 'ss25.png', coord: [1840, 2863.7] },
+            { id: 26, image: 'ss26.png', coord: [1908.5, 2752.4] },
+            { id: 27, image: 'ss27.png', coord: [2002.2, 2662.3] },
+            { id: 28, image: 'ss28.png', coord: [2083.7, 2672.9] },
+            { id: 29, image: 'ss29.png', coord: [1744.4, 2764.2] },
+            { id: 30, image: 'ss30.png', coord: [1673.7, 2759.3] },
+            { id: 31, image: 'ss31.png', coord: [1627.1, 2844.1] },
+            { id: 32, image: 'ss32.png', coord: [1631.3, 2827.8] },
+            { id: 33, image: 'ss33.png', coord: [1583.2, 2828.5] },
+            { id: 34, image: 'ss34.png', coord: [1550.7, 2629.2] },
+            { id: 35, image: 'ss35.png', coord: [1410.7, 2631.3] },
+            { id: 36, image: 'ss36.png', coord: [1320.9, 2537.3] },
+            { id: 37, image: 'ss37.png', coord: [1359.1, 2407.2] },
+            { id: 38, image: 'ss38.png', coord: [1279.4, 2387] },
+            { id: 39, image: 'ss39.png', coord: [1241.6, 2406.8] },
+            { id: 40, image: 'ss40.png', coord: [1003, 2092.3] },
+            { id: 41, image: 'ss41.png', coord: [2010.4, 2041.9] },
+            { id: 42, image: 'ss42.png', coord: [1871, 1675.2] },
+            { id: 43, image: 'ss43.png', coord: [1776, 1863.1] },
+            { id: 44, image: 'ss44.png', coord: [1711, 1948.1] },
+            { id: 45, image: 'ss45.png', coord: [1782.4, 1927.8] },
+            { id: 46, image: 'ss46.png', coord: [1801.9, 1896.1] },
+            { id: 47, image: 'ss47.png', coord: [1557.9, 1828.1] },
+            { id: 48, image: 'ss48.png', coord: [1667.3, 2082.8] },
+            { id: 49, image: 'ss49.png', coord: [1699.9, 2088.7] },
+            { id: 50, image: 'ss50.png', coord: [1578.9, 2225] },
+            { id: 51, image: 'ss51.png', coord: [1829.2, 2191.3] },
+            { id: 52, image: 'ss52.png', coord: [1839.3, 2237.1] },
+            { id: 53, image: 'ss53.png', coord: [1604.9, 2261.2] },
+            { id: 54, image: 'ss54.png', coord: [1721.1, 2561.5] },
+            { id: 55, image: 'ss55.png', coord: [1853.3, 2250.1] },
+            { id: 56, image: 'ss56.png', coord: [1963.6, 2269.9] },
+            { id: 57, image: 'ss57.png', coord: [2025.3, 2244.4] },
+            { id: 58, image: 'ss58.png', coord: [2076.2, 2441.4] },
+            { id: 59, image: 'ss59.png', coord: [2070.1 , 2469.3] },
+            { id: 60, image: 'ss60.png', coord: [2159.4, 2400.2] },
+            { id: 61, image: 'ss61.png', coord: [1897.3, 2250.8] },
+            { id: 62, image: 'ss62.png', coord: [2035.4, 2219.2] },
+            { id: 63, image: 'ss63.png', coord: [1508.1, 2369.7] },
+            { id: 64, image: 'ss64.png', coord: [1597.3, 2351.2] },
+            { id: 65, image: 'ss65.png', coord: [1554.4, 2282.3] },
+            { id: 66, image: 'ss66.png', coord: [2076.2, 2051.1] },
+            { id: 67, image: 'ss67.png', coord: [2003.5, 2022.9] },
+            { id: 68, image: 'ss68.png', coord: [1970.5, 2022.5] },
+            { id: 69, image: 'ss69.png', coord: [2296.9, 2561.4] },
+            { id: 70, image: 'ss70.png', coord: [2243.3, 2617.7] },
+            { id: 71, image: 'ss71.png', coord: [1309.2, 1365] },
+            { id: 72, image: 'ss72.png', coord: [1369.1, 1445] },
+            { id: 73, image: 'ss73.png', coord: [1437, 1294] },
+            { id: 74, image: 'ss74.png', coord: [1511.9, 1315.6] },
+            { id: 75, image: 'ss75.png', coord: [1615.4, 1442.5] },
+            { id: 76, image: 'ss76.png', coord: [1655.7, 1402.6] },
+            { id: 77, image: 'ss77.png', coord: [1589.9, 1558.4] },
+            { id: 78, image: 'ss78.png', coord: [1568.4, 1624.9] },
+            { id: 79, image: 'ss79.png', coord: [1517.1, 1774.8] },
+            { id: 80, image: 'ss80.png', coord: [1773.7, 1515.8] },
+            { id: 81, image: 'ss81.png', coord: [1695.9, 1440] },
+            { id: 82, image: 'ss82.png', coord: [1247.3, 1268.6] },
+            { id: 83, image: 'ss83.png', coord: [1235.7, 1252.7] },
+            { id: 84, image: 'ss84.png', coord: [1039.1, 1283.5] },
+            { id: 85, image: 'ss85.png', coord: [1134.9, 1399] },
+            { id: 86, image: 'ss86.png', coord: [1167.8, 1446.7] },
+            { id: 87, image: 'ss87.png', coord: [1239.2, 1507.9] },
+            { id: 88, image: 'ss88.png', coord: [1186.2, 1580.7] },
+            { id: 89, image: 'ss89.png', coord: [759.5, 1219.7] },
+            { id: 90, image: 'ss90.png', coord: [841.5, 1178.3] },
+            { id: 91, image: 'ss91.png', coord: [889.3, 1138] },
+            { id: 92, image: 'ss92.png', coord: [853.2, 1075.8] },
+            { id: 93, image: 'ss93.png', coord: [816.8, 1049] },
+            { id: 94, image: 'ss94.png', coord: [833.1, 977.6] },
+            { id: 95, image: 'ss95.png', coord: [1068.6, 1127.8] },
+            { id: 96, image: 'ss96.png', coord: [1144.6, 1180.8] },
+            { id: 97, image: 'ss97.png', coord: [879.1, 1308.6] },
+            { id: 98, image: 'ss98.png', coord: [764.4, 1368.5] },
+            { id: 99, image: 'ss99.png', coord: [824.7, 1599.2] },
+            { id: 100, image: 'ss100.png', coord: [868.3, 1759.9] }
+        ];
+        let mapInstance;
+        let currentLocation = null;
+        let guessLat = null;
+        let guessLng = null;
+        let guessMarker = null;
+        let correctMarker = null;
+        let lineLayer = null;
+        let circleLayer = null;
+        let remainingLocations = [];
+        let totalScore = 0;
+        let currentRound = 0;
+        let hasSubmitted = false;
+        let highScore = localStorage.getItem('evrimaHighScore') || 0;
+        let initialCenter = null;
+        let initialZoom = null;
+        let isMusicMuted = false;
+        let bgMusic;
+        let supabaseClient;
+        // Pending data for name prompt
+        let pendingUserId = null;
+        let pendingScore = 0;
+        // PKCE helpers for popup OAuth
+        function generateRandomString(length) {
+            let text = '';
+            const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            for (let i = 0; i < length; i++) {
+                text += possible.charAt(Math.floor(Math.random() * possible.length));
+            }
+            return text;
+        }
+        async function sha256(plain) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(plain);
+            const hash = await crypto.subtle.digest('SHA-256', data);
+            return hash;
+        }
+        function base64urlencode(str) {
+            return btoa(String.fromCharCode.apply(null, new Uint8Array(str)))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+        }
+        function initMap() {
+            mapInstance = L.map('map', {
+                crs: L.CRS.Simple,
+                minZoom: -5,
+                maxZoom: 6,
+                zoomSnap: 0.25
+            });
+            const img = new Image();
+            img.src = MAP_IMAGE;
+            img.onload = function () {
+                const bounds = [[0, 0], [img.height, img.width]];
+                L.imageOverlay(MAP_IMAGE, bounds).addTo(mapInstance);
+        
+                initialCenter = [img.height / 2, img.width / 2];
+                initialZoom = -1;
+                mapInstance.setView(initialCenter, initialZoom);
+                mapInstance.on('click', function (e) {
+                    const x = Math.round(e.latlng.lat * 10) / 10;
+                    const y = Math.round(e.latlng.lng * 10) / 10;
+                    document.getElementById('coord-debug').style.display = 'block';
+                    document.getElementById('coord-text').textContent = `X: ${x} | Y: ${y}`;
+                    if (hasSubmitted || !currentLocation) return;
+                    if (guessMarker) mapInstance.removeLayer(guessMarker);
+                    guessLat = e.latlng.lat;
+                    guessLng = e.latlng.lng;
+                    guessMarker = L.circleMarker(e.latlng, {
+                        color: '#f00', fillColor: '#f00', fillOpacity: 0.9, radius: 14, weight: 5
+                    }).addTo(mapInstance);
+                });
+            };
+        }
+        function resetMapView() {
+            if (mapInstance && initialCenter) {
+                mapInstance.flyTo(initialCenter, initialZoom, { duration: 1.8, easeLinearity: 0.25 });
+            }
+        }
+        function toggleMusic() {
+            isMusicMuted = !isMusicMuted;
+            const btn = document.getElementById('mute-btn');
+            if (isMusicMuted) {
+                bgMusic.pause();
+                btn.textContent = '🔇 MUSIC OFF';
+            } else {
+                bgMusic.play().catch(() => {});
+                btn.textContent = '🔊 MUSIC ON';
+            }
+        }
+        function playSoundEffect(quality) {
+            let audio;
+            if (quality === "PERFECT!" || quality === "EXCELLENT" || quality === "GREAT") {
+                audio = document.getElementById('sfx1');
+            } else if (quality === "GOOD" || quality === "OKAY") {
+                audio = document.getElementById('sfx2');
+            } else {
+                audio = document.getElementById('sfx3');
+            }
+            if (audio) {
+                audio.currentTime = 0;
+                audio.play().catch(() => {});
+            }
+        }
+        function playSFX(sfxId) {
+            const audio = document.getElementById(sfxId);
+            if (audio) {
+                audio.currentTime = 0;
+                audio.play().catch(() => {});
+            }
+        }
+        function startNewRound() {
+            if (currentRound >= MAX_ROUNDS) {
+                showEndScreen();
+                return;
+            }
+            currentRound++;
+            document.getElementById('round-num').textContent = currentRound;
+            if (remainingLocations.length === 0) {
+                showEndScreen();
+                return;
+            }
+            const index = Math.floor(Math.random() * remainingLocations.length);
+            currentLocation = remainingLocations.splice(index, 1)[0];
+         
+            // Fade transition for panorama image change
+            const panorama = document.getElementById('panorama');
+            panorama.style.opacity = '0';
+         
+            setTimeout(() => {
+                panorama.src = currentLocation ? currentLocation.image : 'ss0.png';
+                const handleLoad = () => {
+                    panorama.style.opacity = '1';
+                    panorama.removeEventListener('load', handleLoad);
+                };
+                panorama.addEventListener('load', handleLoad);
+                // If image is already cached, fade in immediately
+                if (panorama.complete && panorama.naturalHeight !== 0) {
+                    panorama.style.opacity = '1';
+                }
+            }, 320);
+         
+            clearMarkers();
+            guessLat = null;
+            guessLng = null;
+            hasSubmitted = false;
+            document.getElementById('submit-btn').style.display = 'inline-block';
+            document.getElementById('next-btn').style.display = 'none';
+            document.getElementById('result-panel').style.display = 'none';
+            resetMapView();
+            document.getElementById('coord-debug').style.display = 'none';
+        }
+        function clearMarkers() {
+            [guessMarker, correctMarker, lineLayer, circleLayer].forEach(l => {
+                if (l) mapInstance.removeLayer(l);
+            });
+        }
+        function submitGuess() {
+            if (guessLat === null || guessLng === null || !currentLocation || hasSubmitted) return;
+            hasSubmitted = true;
+            const actualLat = currentLocation.coord[0];
+            const actualLng = currentLocation.coord[1];
+            const distancePx = Math.hypot(guessLng - actualLng, guessLat - actualLat);
+            let basePoints = Math.max(5, Math.round(380 / (Math.sqrt(distancePx) + 11)));
+            let quality = "TERRIBLE!";
+            let color = "#ff4444";
+            let multiplier = 0.6;
+            if (distancePx <= 10) {
+                quality = "PERFECT!";
+                color = "#00ff00";
+                multiplier = 2.1;
+            }
+            else if (distancePx <= 50) {
+                quality = "EXCELLENT";
+                color = "#00ff88";
+                multiplier = 1.75;
+            }
+            else if (distancePx <= 120) {
+                quality = "GREAT";
+                color = "#aaff00";
+                multiplier = 1.50;
+            }
+            else if (distancePx <= 175) {
+                quality = "GOOD";
+                color = "#ffdd00";
+                multiplier = 1.00;
+            }
+            else if (distancePx <= 390) {
+                quality = "OKAY";
+                color = "#ffaa00";
+                multiplier = 0.85;
+            }
+            else if (distancePx <= 525) {
+                quality = "BAD";
+                color = "#ff6600";
+                multiplier = 0.65;
+            }
+            else {
+                quality = "TERRIBLE!";
+                color = "#ff4444";
+                multiplier = 0.45;
+            }
+            const finalPoints = Math.round(basePoints * multiplier);
+            playSoundEffect(quality);
+            totalScore += finalPoints;
+            const guessPos = L.latLng(guessLat, guessLng);
+            const actualPos = L.latLng(actualLat, actualLng);
+            lineLayer = L.polyline([guessPos, actualPos], { color: '#ff0', weight: 4, opacity: 0.9 }).addTo(mapInstance);
+            circleLayer = L.circle(guessPos, { radius: distancePx, color: '#ff0', fillColor: '#ff0', fillOpacity: 0.08, weight: 3 }).addTo(mapInstance);
+            correctMarker = L.circleMarker(actualPos, { color: '#0f0', fillColor: '#0f0', fillOpacity: 0.95, radius: 16, weight: 6 }).addTo(mapInstance);
+            document.getElementById('distance-text').innerHTML =
+                `<span style="color:${color}">${quality}</span><br>` +
+                `📍 <strong>${Math.round(distancePx)}</strong> meters away`;
+            document.getElementById('points-text').innerHTML = `+<strong>${finalPoints}</strong> POINTS`;
+            document.getElementById('total-score').textContent = totalScore;
+            document.getElementById('result-panel').style.display = 'block';
+            document.getElementById('submit-btn').style.display = 'none';
+            document.getElementById('next-btn').style.display = 'inline-block';
+            const group = L.featureGroup([guessMarker || guessPos, correctMarker]);
+            mapInstance.fitBounds(group.getBounds().pad(0.35), {
+                animate: true,
+                duration: 1.2,
+                maxZoom: 3
+            });
+        }
+        function hideResultAndNext() {
+            document.getElementById('result-panel').style.display = 'none';
+            startNewRound();
+        }
+        function nextRound() { hideResultAndNext(); }
+        function showEndScreen(isSaved = false) {
+            const endScreen = document.getElementById('end-screen');
+            let gotNewHighScore = false;
+            if (totalScore > highScore) {
+                gotNewHighScore = true;
+                highScore = totalScore;
+                localStorage.setItem('evrimaHighScore', highScore);
+            }
+            document.getElementById('final-score').textContent = totalScore;
+            document.getElementById('high-score-display').textContent = highScore;
+            document.getElementById('save-score-section').style.display = 'block';
+            document.getElementById('name-prompt-section').style.display = 'none';
+            document.getElementById('score-saved-section').style.display = isSaved ? 'block' : 'none';
+            endScreen.style.display = 'block';
+            if (gotNewHighScore) {
+                playSFX('sfx6');
+            } else {
+                playSFX('sfx5');
+            }
+        }
+        function playAgain() {
+            playSFX('sfx4');
+            document.getElementById('end-screen').style.display = 'none';
+            totalScore = 0;
+            currentRound = 0;
+            remainingLocations = [...LOCATIONS];
+            startNewRound();
+        }
+        function clearHighScore() {
+            if (confirm('Delete all saved high scores?')) {
+                localStorage.removeItem('evrimaHighScore');
+                highScore = 0;
+                document.getElementById('high-score-display').textContent = '0';
+            }
+        }
+        // ====================== LOAD HIGHSCORES WITH DISPLAY NAME ======================
+        async function loadHighscores() {
+            const container = document.getElementById('highscores-scroll');
+            container.innerHTML = '🔄 Loading leaderboard...';
+            try {
+                const { data, error } = await supabaseClient
+                    .from(TABLE_NAME)
+                    .select('*')
+                    .order('score', { ascending: false })
+                    .limit(25);
+                if (error) {
+                    throw error;
+                }
+                if (!data || data.length === 0) {
+                    container.innerHTML = `<div style="text-align:center; padding:30px 0; color:#ff0;">No high scores yet!<br>Play to be #1</div>`;
+                    return;
+                }
+                let html = '';
+                data.forEach((entry, i) => {
+                    const rank = i + 1;
+                    const displayName = entry.display_name || 'Anonymous';
+                    const scoreFormatted = entry.score ? entry.score.toLocaleString('en-US') : '0';
+                    const dateStr = entry.created_at ? new Date(entry.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : '';
+                    html += `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px dotted rgba(15,240,0,0.25);">
+                        <span style="color:#ff0; min-width: 38px; font-size:0.9rem;">#${rank}</span>
+                        <span style="color:#0ff; flex:1; padding:0 12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${displayName}</span>
+                        <span style="color:#0f0; font-weight: bold; min-width: 85px; text-align:right; padding-right:12px;">${scoreFormatted}</span>
+                        <span style="color:#0aa; font-size:0.75rem; white-space:nowrap;">${dateStr}</span>
+                    </div>
+                    `;
+                });
+                container.innerHTML = html;
+            } catch (err) {
+                console.error('Leaderboard load error:', err);
+                container.innerHTML = `<div style="color:#f44; text-align:center;">Failed to load scores<br><small>${err.message}</small></div>`;
+            }
+        }
+        // ====================== SUBMIT SCORE WITH DISPLAY NAME ======================
+        async function submitScore(userId, score, displayName) {
+            const { error } = await supabaseClient.from(TABLE_NAME).insert({
+                user_id: userId,
+                score: score,
+                display_name: displayName
+            });
+            return !error;
+        }
+        function submitWithCustomName() {
+            const nameInput = document.getElementById('player-name-input').value.trim();
+            if (!nameInput) {
+                alert("Please enter a name!");
+                return;
+            }
+            if (!pendingUserId || pendingScore === 0) return;
+            submitScore(pendingUserId, pendingScore, nameInput).then(success => {
+                if (success) {
+                    document.getElementById('name-prompt-section').style.display = 'none';
+                    document.getElementById('score-saved-section').style.display = 'block';
+                    loadHighscores();
+                } else {
+                    alert('Failed to save score to leaderboard.');
+                    document.getElementById('name-prompt-section').style.display = 'none';
+                    document.getElementById('save-score-section').style.display = 'block';
+                }
+                pendingUserId = null;
+                pendingScore = 0;
+            });
+        }
+        function cancelNamePrompt() {
+            document.getElementById('name-prompt-section').style.display = 'none';
+            document.getElementById('save-score-section').style.display = 'block';
+            pendingUserId = null;
+            pendingScore = 0;
+        }
+        // ====================== LOGIN CODE ======================
+        async function loginWithProvider(provider) {
+            localStorage.setItem('pendingEvrimaScore', totalScore.toString());
+            const redirectTo = window.location.href;
+            const codeVerifier = generateRandomString(64);
+            const codeChallenge = base64urlencode(await sha256(codeVerifier));
+            const projectRef = SUPABASE_URL.split('/')[3];
+            const codeVerifierKey = `sb-${projectRef}-code-verifier`;
+            localStorage.setItem(codeVerifierKey, codeVerifier);
+            const authorizeUrl = new URL(`${SUPABASE_URL}/auth/v1/authorize`);
+            authorizeUrl.searchParams.set('provider', provider.toLowerCase());
+            authorizeUrl.searchParams.set('redirect_to', redirectTo);
+            authorizeUrl.searchParams.set('code_challenge', codeChallenge);
+            authorizeUrl.searchParams.set('code_challenge_method', 'S256');
+            const width = 600;
+            const height = 700;
+            const left = window.screenX + (window.outerWidth - width) / 2;
+            const top = window.screenY + (window.outerHeight - height) / 2;
+            const popup = window.open(
+                authorizeUrl.toString(),
+                `supabase-${provider}-popup`,
+                `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes`
+            );
+            if (popup === null) {
+                alert('Popup was blocked by your browser. Please allow popups for this site and try again.');
+                localStorage.removeItem('pendingEvrimaScore');
+                return;
+            }
+            popup.focus();
+        }
+        // Message listener for popup callback
+        window.addEventListener('message', async (event) => {
+            if (event.origin !== window.location.origin) return;
+            if (event.data && event.data.type === 'SUPABASE_AUTH_CALLBACK') {
+                const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
+                if (event.data.success && event.data.session && pendingScoreStr) {
+                    pendingUserId = event.data.session.user.id;
+                    pendingScore = parseInt(pendingScoreStr);
+                    localStorage.removeItem('pendingEvrimaScore');
+                    document.getElementById('save-score-section').style.display = 'none';
+                    document.getElementById('name-prompt-section').style.display = 'block';
+                    document.getElementById('player-name-input').focus();
+                } else {
+                    localStorage.removeItem('pendingEvrimaScore');
+                    alert('Login failed or was cancelled. Please try again.');
+                }
+            }
+        });
+        window.onload = async function () {
+            // FIRST: Check if this page load is actually the OAuth callback inside a popup
+            const isPopupCallback = window.opener !== null &&
+                (window.location.hash.includes('access_token') ||
+                 window.location.search.includes('code=') ||
+                 window.location.search.includes('error='));
+            if (isPopupCallback) {
+                const { createClient } = supabase;
+                supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                try {
+                    const { data: { session } } = await supabaseClient.auth.getSession();
+                    if (window.opener && session) {
+                        window.opener.postMessage({
+                            type: 'SUPABASE_AUTH_CALLBACK',
+                            session: session,
+                            success: true
+                        }, '*');
+                    } else {
+                        if (window.opener) {
+                            window.opener.postMessage({
+                                type: 'SUPABASE_AUTH_CALLBACK',
+                                success: false
+                            }, '*');
+                        }
+                    }
+                } catch (err) {
+                    if (window.opener) {
+                        window.opener.postMessage({
+                            type: 'SUPABASE_AUTH_CALLBACK',
+                            success: false
+                        }, '*');
+                    }
+                }
+                setTimeout(() => { window.close(); }, 800);
+                return;
+            }
+            // Normal game page load continues below
+            initMap();
+            remainingLocations = [...LOCATIONS];
+            bgMusic = document.getElementById('bg-music');
+            bgMusic.volume = 0.25;
+            bgMusic.play().catch(() => console.log('Autoplay blocked'));
+            document.getElementById('mute-btn').addEventListener('click', toggleMusic);
+            const { createClient } = supabase;
+            supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            loadHighscores();
+            mapInstance.on('click', function autoStart() {
+                if (bgMusic.paused && !isMusicMuted) bgMusic.play().catch(() => {});
+                mapInstance.off('click', autoStart);
+            });
+            setTimeout(startNewRound, 600);
+        };
+    </script>
+</body>
+</html>
