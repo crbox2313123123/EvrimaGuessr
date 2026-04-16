@@ -200,7 +200,7 @@
         }
         .info { margin-top: 0; font-size: 0.9rem; line-height: 1.4; }
 
-        /* Desktop leaderboard auto-scroll */
+        /* Desktop leaderboard auto-scroll - very slow */
         #highscore-list-container {
             flex: 0 0 80%;
             display: flex;
@@ -614,7 +614,7 @@
         let supabaseClient;
         let pendingUserId = null;
         let pendingScore = 0;
-        let currentDisplayName = null;   // NEW: stores the saved name for persistent login
+        let currentDisplayName = null;
 
         function generateRandomString(length) {
             let text = '';
@@ -635,7 +635,7 @@
                 .replace(/=+$/, '');
         }
 
-        // NEW: Submit screenshot button
+        // Submit screenshot - opens Discord
         function submitScreenshot() {
             window.open('https://discord.gg/tXt3HW45Sq', '_blank');
         }
@@ -814,11 +814,11 @@
             }
         }
 
-        // Auto-scroll leaderboard on desktop after 2-3 seconds (super slow)
+        // Super slow leaderboard scroll
         function startLeaderboardScroll() {
             const scrollContainer = document.getElementById('highscores-scroll');
             if (!scrollContainer) return;
-            let scrollSpeed = 0.08;
+            let scrollSpeed = 0.03;   // very slow
             setTimeout(() => {
                 let scrollInterval = setInterval(() => {
                     if (scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight - 5) {
@@ -826,7 +826,7 @@
                     } else {
                         scrollContainer.scrollTop += scrollSpeed;
                     }
-                }, 30);
+                }, 80);   // slower interval
                 scrollContainer.addEventListener('mouseenter', () => clearInterval(scrollInterval));
                 scrollContainer.addEventListener('mouseleave', () => {
                     scrollInterval = setInterval(() => {
@@ -835,7 +835,7 @@
                         } else {
                             scrollContainer.scrollTop += scrollSpeed;
                         }
-                    }, 30);
+                    }, 80);
                 });
             }, 2500);
         }
@@ -899,6 +899,7 @@
                     document.getElementById('score-saved-section').style.display = 'block';
                     loadHighscores();
                     currentDisplayName = nameInput;
+                    localStorage.setItem('evrimaLastDisplayName', nameInput);
                 } else {
                     alert('Failed to save score.');
                     document.getElementById('name-prompt-section').style.display = 'none';
@@ -971,6 +972,18 @@
             }
         });
 
+        // Persistent login check
+        async function checkPersistentLogin() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session && session.user) {
+                    pendingUserId = session.user.id;
+                    const savedName = localStorage.getItem('evrimaLastDisplayName');
+                    if (savedName) currentDisplayName = savedName;
+                }
+            } catch (e) {}
+        }
+
         function openFullscreen() {
             const preview = document.getElementById('fullscreen-preview');
             const img = document.getElementById('fullscreen-image');
@@ -980,21 +993,6 @@
 
         function closeFullscreen() {
             document.getElementById('fullscreen-preview').style.display = 'none';
-        }
-
-        // NEW: Persistent login check on page load
-        async function checkPersistentLogin() {
-            try {
-                const { data: { session } } = await supabaseClient.auth.getSession();
-                if (session && session.user) {
-                    pendingUserId = session.user.id;
-                    // Optional: you can also load the last used display name from localStorage if you want
-                    const savedName = localStorage.getItem('evrimaLastDisplayName');
-                    if (savedName) currentDisplayName = savedName;
-                }
-            } catch (e) {
-                // silent fail - no session
-            }
         }
 
         window.onload = async function () {
@@ -1023,12 +1021,12 @@
             const { createClient } = supabase;
             supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // Persistent login check
+            // Check if user is already logged in
             await checkPersistentLogin();
 
             loadHighscores();
 
-            // Start auto-scroll leaderboard after 2.5 seconds
+            // Start super slow auto-scroll
             setTimeout(startLeaderboardScroll, 2500);
 
             mapInstance.on('click', function autoStart() {
