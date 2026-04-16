@@ -617,40 +617,19 @@
             pendingScore = 0;
         }
 
-            async function loginWithProvider(provider) {
-                localStorage.setItem('pendingEvrimaScore', totalScore.toString());
-                
-                // Use clean origin so it works on both Vercel and localhost
-                const redirectTo = window.location.origin;
+async function loginWithProvider(provider) {
+    localStorage.setItem('pendingEvrimaScore', totalScore.toString());
 
-                const codeVerifier = generateRandomString(64);
-                const codeChallenge = base64urlencode(await sha256(codeVerifier));
-                const projectRef = SUPABASE_URL.split('/')[3];
-                const codeVerifierKey = `sb-${projectRef}-code-verifier`;
-                localStorage.setItem(codeVerifierKey, codeVerifier);
+    const { createClient } = supabase;
+    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-                const authorizeUrl = new URL(`${SUPABASE_URL}/auth/v1/authorize`);
-                authorizeUrl.searchParams.set('provider', provider.toLowerCase());
-                authorizeUrl.searchParams.set('redirect_to', redirectTo);
-                authorizeUrl.searchParams.set('code_challenge', codeChallenge);
-                authorizeUrl.searchParams.set('code_challenge_method', 'S256');
-
-                const width = 620;
-                const height = 720;
-                const left = window.screenX + (window.outerWidth - width) / 2;
-                const top = window.screenY + (window.outerHeight - height) / 2;
-
-                const popup = window.open(
-                    authorizeUrl.toString(),
-                    `supabase-${provider}-popup`,
-                    `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes`
-                );
-
-                if (popup === null) {
-                    alert('Popup was blocked. Please allow popups and try again.');
-                    localStorage.removeItem('pendingEvrimaScore');
-                }
-            }
+    client.auth.signInWithOAuth({
+        provider: provider.toLowerCase(),
+        options: {
+            redirectTo: window.location.origin
+        }
+    });
+}
 
 window.addEventListener('message', (event) => {
     if (event.origin !== window.location.origin) return;
