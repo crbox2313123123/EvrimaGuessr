@@ -5,362 +5,319 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Isle: Evrima GeoGuessr</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Press Start 2P', system-ui;
-            background: #0a0a1f;
-            color: #0f0;
-            overflow: hidden;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        header {
-            background: #111133;
-            padding: 15px;
-            text-align: center;
-            border-bottom: 4px solid #0f0;
-            box-shadow: 0 0 20px #0f0;
-        }
-        h1 { font-size: 1.8rem; text-shadow: 0 0 10px #0f0; }
-        .game-container { display: flex; flex: 1; overflow: hidden; }
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: 'Press Start 2P', system-ui;
+        background: #0a0a1f;
+        color: #0f0;
+        overflow: hidden;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+    header {
+        background: #111133;
+        padding: 12px 15px;
+        text-align: center;
+        border-bottom: 4px solid #0f0;
+        box-shadow: 0 0 20px #0f0;
+        flex-shrink: 0;
+    }
+    #mobile-header-banner {
+        max-height: 58px;
+        width: auto;
+        image-rendering: pixelated;
+    }
+    header p {
+        font-size: 0.95rem;
+        margin-top: 6px;
+        color: #0f0;
+        text-shadow: 0 0 8px #0f0;
+    }
+
+    .game-container { 
+        display: flex; 
+        flex: 1; 
+        overflow: hidden; 
+    }
+
+    .view-panel {
+        width: 42%;
+        background: #05050f;
+        display: flex;
+        flex-direction: column;
+        padding: 15px;
+        border-right: 4px solid #0f0;
+        overflow-y: auto;
+        min-width: 380px;
+    }
+
+    .banner {
+        background: #111133;
+        border: 4px solid #0f0;
+        box-shadow: 0 0 15px #0f0;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        image-rendering: pixelated;
+    }
+
+    #banner-top {
+        height: 68px;
+        margin-bottom: 14px;
+        padding: 0;
+        border: none;
+        box-shadow: none;
+        background: transparent;
+        overflow: hidden;
+    }
+
+    .panorama-container {
+        flex: none;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        background: #000;
+        border: 6px solid #0f0;
+        border-radius: 8px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 30px #0f0;
+        cursor: pointer;
+        margin-bottom: 12px;
+    }
+
+    #panorama {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: cover;
+        image-rendering: pixelated;
+        opacity: 1;
+        transition: opacity 0.18s ease-in-out;
+    }
+
+    .map-panel { 
+        flex: 1; 
+        position: relative; 
+        min-width: 0;
+    }
+    #map { width: 100%; height: 100%; }
+
+    /* Controls */
+    .controls {
+        position: absolute; 
+        bottom: 24px; 
+        left: 50%; 
+        transform: translateX(-50%);
+        background: rgba(10,10,30,0.95); 
+        padding: 12px 32px; 
+        border: 4px solid #0f0; 
+        border-radius: 8px;
+        display: flex; 
+        gap: 18px; 
+        box-shadow: 0 0 30px #0f0; 
+        z-index: 1000;
+    }
+    #mute-btn {
+        position: absolute;
+        bottom: 24px;
+        left: 24px;
+        background: rgba(10,10,30,0.95);
+        color: #0f0;
+        border: 3px solid #0f0;
+        padding: 10px 18px;
+        font-family: 'Press Start 2P', system-ui;
+        font-size: 0.95rem;
+        cursor: pointer;
+        z-index: 1000;
+        box-shadow: 0 0 15px #0f0;
+    }
+    #mute-btn:hover { background: #0f0; color: #111133; }
+    button {
+        font-family: 'Press Start 2P', system-ui;
+        padding: 12px 26px;
+        font-size: 1.05rem;
+        background: #111133;
+        color: #0f0;
+        border: 3px solid #0f0;
+        cursor: pointer;
+    }
+    button:hover { background: #0f0; color: #111133; }
+
+    /* Result & End Screen */
+    .result, #end-screen {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(10,10,30,0.98);
+        padding: 32px 48px;
+        border: 4px solid #0f0;
+        border-radius: 8px;
+        text-align: center;
+        z-index: 3000;
+        box-shadow: 0 0 50px #0f0;
+        max-width: 92%;
+        display: none;
+    }
+
+    /* Highscore Banner */
+    #banner-bottom {
+        display: flex;
+        background: #111133;
+        border: 4px solid #0f0;
+        box-shadow: 0 0 15px #0f0;
+        min-height: 138px;
+        margin-top: auto;
+        flex-shrink: 0;
+    }
+    #highscore-list-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border-right: 4px solid #0f0;
+    }
+    #highscore-header {
+        height: 38px;
+        background: #0a0a1f;
+        color: #ff0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.78rem;
+        letter-spacing: 2.5px;
+        text-shadow: 0 0 8px #ff0;
+        border-bottom: 3px solid #0f0;
+        text-transform: uppercase;
+        flex-shrink: 0;
+    }
+    #highscores-scroll {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px 16px;
+        font-size: 0.84rem;
+        line-height: 1.5;
+        scrollbar-width: thin;
+        scrollbar-color: #0f0 #111133;
+    }
+    #logos-container {
+        flex: 0 0 128px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px;
+    }
+    #mini-icon {
+        max-height: 108px;
+        image-rendering: pixelated;
+    }
+
+    .info {
+        margin-top: 12px;
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+
+    /* Fullscreen */
+    #fullscreen-preview {
+        display: none;
+        position: fixed;
+        top: 0; left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(10,10,30,0.97);
+        z-index: 5000;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+    #fullscreen-image {
+        max-width: 94%;
+        max-height: 94vh;
+        object-fit: contain;
+        image-rendering: pixelated;
+        box-shadow: 0 0 60px #0f0;
+    }
+    #fullscreen-close {
+        position: absolute;
+        top: 25px;
+        right: 25px;
+        background: #111133;
+        color: #0f0;
+        border: 4px solid #0f0;
+        padding: 12px 24px;
+        font-size: 1.8rem;
+        cursor: pointer;
+        z-index: 5100;
+        box-shadow: 0 0 20px #0f0;
+    }
+
+    /* ====================== MOBILE RESPONSIVE ====================== */
+    @media (max-width: 900px) {
+        .game-container { flex-direction: column; }
         .view-panel {
-            width: 42%;
-            background: #05050f;
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-            border-right: 4px solid #0f0;
-        }
-        .banner {
-            height: 72px;
-            background: #111133;
-            border: 4px solid #0f0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.85rem;
-            color: #0f0;
-            text-shadow: 0 0 8px #0f0;
-            box-shadow: 0 0 15px #0f0;
-            margin-bottom: 12px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-        #banner-top {
-            height: 72px;
-            padding: 0;
-            background: transparent;
-            border: none;
-            box-shadow: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-        #banner-bottom {
-            height: 144px;
-            margin-top: 12px;
-            margin-bottom: 40px;
-            border-top: 4px solid #0f0;
-            border-bottom: none;
-            background: #111133;
-            box-shadow: 0 0 15px #0f0;
-            display: flex;
-            align-items: stretch;
-            padding: 0;
+            width: 100% !important;
+            border-right: none;
+            border-bottom: 4px solid #0f0;
+            min-width: unset;
+            max-height: 52vh;
+            padding: 10px;
         }
         .panorama-container {
-            flex: none;
-            width: 100%;
             aspect-ratio: 16 / 9;
-            background: #000;
-            border: 6px solid #0f0;
-            border-radius: 8px;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 0 30px #0f0;
-            cursor: pointer;
-            pointer-events: auto;
-            margin-top: 0;
+            max-height: 195px;
+            border-width: 5px;
+            margin-bottom: 10px;
         }
-        #panorama {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: cover;
-            image-rendering: pixelated;
-            opacity: 1;
-            transition: opacity 0.18s ease-in-out;
-            will-change: opacity;
+        #banner-bottom {
+            min-height: 110px;
+            flex-shrink: 0;
         }
-        .map-panel { flex: 1; position: relative; }
-        #map { width: 100%; height: 100%; }
+        #highscore-header { height: 34px; font-size: 0.73rem; }
+        #highscores-scroll { font-size: 0.78rem; padding: 8px 10px; }
+        #logos-container { flex: 0 0 92px; }
+        #mini-icon { max-height: 82px; }
+
         .controls {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            background: rgba(10,10,30,0.95); padding: 12px 30px; border: 4px solid #0f0; border-radius: 8px;
-            display: flex; gap: 15px; box-shadow: 0 0 30px #0f0; z-index: 1000;
+            bottom: 82px;
+            padding: 10px 24px;
+            gap: 14px;
         }
         #mute-btn {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            background: rgba(10,10,30,0.95);
-            color: #0f0;
-            border: 3px solid #0f0;
-            padding: 10px 18px;
-            font-family: 'Press Start 2P', system-ui;
-            font-size: 0.95rem;
-            cursor: pointer;
-            z-index: 1000;
-            box-shadow: 0 0 15px #0f0;
+            bottom: 18px;
+            left: 18px;
+            padding: 9px 15px;
+            font-size: 0.88rem;
         }
-        #mute-btn:hover { background: #0f0; color: #111133; }
-        button {
-            font-family: 'Press Start 2P', system-ui;
-            padding: 12px 24px;
-            font-size: 1.1rem;
-            background: #111133;
-            color: #0f0;
-            border: 3px solid #0f0;
-            cursor: pointer;
-        }
-        button:hover { background: #0f0; color: #111133; }
+        button { font-size: 0.98rem; padding: 11px 22px; }
+
         .result, #end-screen {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(10,10,30,0.98);
-            padding: 30px 50px;
-            border: 4px solid #0f0;
-            border-radius: 8px;
-            text-align: center;
-            z-index: 3000;
-            box-shadow: 0 0 40px #0f0;
-            display: none;
-        }
-        .footer {
-            text-align: center;
-            padding: 10px;
-            font-size: 0.8rem;
-            background: #111133;
-            color: #0a0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 20px;
-        }
-        .info { margin-top: 0; }
-        /* === HIGHSCORE BANNER === */
-        #highscore-list-container {
-            flex: 0 0 80%;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            border-right: 4px solid #0f0;
-        }
-        #highscore-header {
-            height: 38px;
-            background: #0a0a1f;
-            color: #ff0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.78rem;
-            letter-spacing: 2.5px;
-            text-shadow: 0 0 8px #ff0;
-            border-bottom: 3px solid #0f0;
-            text-transform: uppercase;
-        }
-        #highscores-scroll {
-            flex: 1;
+            padding: 24px 32px;
+            max-height: 86vh;
             overflow-y: auto;
-            padding: 10px 18px;
-            color: #0f0;
-            font-size: 0.85rem;
-            line-height: 1.45;
-            scrollbar-width: thin;
-            scrollbar-color: #0f0 #111133;
         }
-        #highscores-scroll::-webkit-scrollbar {
-            width: 6px;
-        }
-        #highscores-scroll::-webkit-scrollbar-thumb {
-            background-color: #0f0;
-            border-radius: 20px;
-        }
-        #logos-container {
-            flex: 0 0 20%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #111133;
-            border-left: 4px solid #0f0;
-        }
-        #mini-icon {
-            max-height: 110px;
-            image-rendering: pixelated;
-        }
-        /* === NAME PROMPT === */
-        #name-prompt-section input {
-            background: #111133;
-            color: #0f0;
-            border: 3px solid #0f0;
-            padding: 12px 20px;
-            width: 100%;
-            font-family: 'Press Start 2P', system-ui;
-            font-size: 1.1rem;
-            text-align: center;
-            margin: 15px 0;
-            box-shadow: 0 0 15px #0f0;
-        }
-        /* ====================== FULLSCREEN PANORAMA PREVIEW ====================== */
-        #fullscreen-preview {
-            display: none;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(10,10,30,0.97);
-            z-index: 5000;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-        #fullscreen-image {
-            max-width: 94%;
-            max-height: 94vh;
-            object-fit: contain;
-            image-rendering: pixelated;
-            box-shadow: 0 0 50px #0f0;
-        }
-        #fullscreen-close {
-            position: absolute;
-            top: 25px;
-            right: 25px;
-            background: #111133;
-            color: #0f0;
-            border: 4px solid #0f0;
-            padding: 12px 22px;
-            font-size: 1.6rem;
-            cursor: pointer;
-            z-index: 5100;
-            box-shadow: 0 0 20px #0f0;
-        }
+    }
 
-        /* ====================== MOBILE RESPONSIVE ====================== */
-        @media (max-width: 900px) {
-            .game-container { flex-direction: column; }
-
-            /* Hide normal title on mobile and show banner instead */
-            header h1 {
-                display: none;
-            }
-
-            #mobile-header-banner {
-                width: 100%;
-                height: 68px;
-                object-fit: contain;
-                margin: 4px 0 6px 0;
-            }
-
-            header {
-                padding: 10px 8px 6px;
-                flex-shrink: 0;
-            }
-
-            header p {
-                font-size: 0.78rem;
-                margin-top: 4px;
-            }
-
-            .view-panel {
-                width: 100% !important;
-                border-right: none;
-                border-bottom: 4px solid #0f0;
-                max-height: 53vh;
-                overflow-y: auto;
-                padding: 10px 10px 6px;
-            }
-
-            .map-panel {
-                flex: 1;
-                min-height: 45vh;
-            }
-
-            #banner-top { height: 62px; }
-            .panorama-container {
-                max-height: 205px;
-                border-width: 5px;
-                margin-top: 0;
-                margin-bottom: 8px;
-            }
-
-            #banner-bottom {
-                height: auto;
-                max-height: 118px;
-                padding: 4px 0;
-                margin-top: 8px;
-            }
-
-            #highscore-header { font-size: 0.72rem; height: 32px; }
-            #highscores-scroll { font-size: 0.78rem; padding: 6px 10px; }
-            #logos-container { display: none; }
-
-            /* Hide footer on mobile */
-            .footer {
-                display: none !important;
-            }
-
-            .controls {
-                padding: 9px 20px;
-                bottom: 78px;
-                gap: 12px;
-            }
-            button { padding: 10px 22px; font-size: 0.96rem; }
-
-            #mute-btn {
-                padding: 9px 14px;
-                font-size: 0.9rem;
-                bottom: 15px;
-                left: 15px;
-            }
-
-            .result, #end-screen {
-                top: 15px;
-                padding: 20px 25px;
-                max-width: 94%;
-                max-height: 88vh;
-                overflow-y: auto;
-                font-size: 0.93rem;
-            }
-            .result button,
-            #end-screen button {
-                padding: 12px 24px;
-                font-size: 1rem;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .panorama-container { max-height: 188px; }
-            .view-panel { max-height: 51vh; }
-        }
-    </style>
+    @media (max-width: 480px) {
+        .panorama-container { max-height: 172px; }
+        .view-panel { max-height: 49vh; }
+        header p { font-size: 0.85rem; }
+    }
+</style>
 </head>
 <body>
-    <header>
-        <img id="mobile-header-banner" src="mobilebanner.png" alt="The Isle Evrima GeoGuessr">
-        <p>Round <span id="round-num">1</span>/10 — Total Score: <span id="total-score">0</span></p>
-    </header>
+<header>
+    <img id="mobile-header-banner" src="mobilebanner.png" alt="The Isle Evrima GeoGuessr">
+    <p>Round <span id="round-num">1</span>/10 — Total Score: <span id="total-score">0</span></p>
+</header>
     <div class="game-container">
         <div class="view-panel">
-            <div id="banner-top" class="banner">
-                <img src="banner.png" alt="The Isle Evrima Banner" style="width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated;">
-            </div>
+<div id="banner-top" class="banner">
+    <img src="banner.png" alt="EVRIMAGUESSR" style="width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated;">
+</div>
             <div class="panorama-container" id="panorama-container">
                 <img id="panorama" src="ss0.png" alt="Your location in Evrima">
             </div>
@@ -640,12 +597,22 @@
             currentLocation = remainingLocations.splice(index, 1)[0];
             const panorama = document.getElementById('panorama');
             panorama.style.opacity = '0';
-            setTimeout(() => {
-                panorama.src = currentLocation ? currentLocation.image : 'ss0.png';
-                const handleLoad = () => { panorama.style.opacity = '1'; panorama.removeEventListener('load', handleLoad); };
-                panorama.addEventListener('load', handleLoad);
-                if (panorama.complete && panorama.naturalHeight !== 0) panorama.style.opacity = '1';
-            }, 160);
+setTimeout(() => {
+    panorama.src = currentLocation ? currentLocation.image : 'ss0.png';
+    
+    const handleLoad = () => { 
+        panorama.style.opacity = '1'; 
+        panorama.style.maxHeight = '100%';   // ← This is the new line
+        panorama.removeEventListener('load', handleLoad); 
+    };
+    
+    panorama.addEventListener('load', handleLoad);
+    
+    if (panorama.complete && panorama.naturalHeight !== 0) {
+        panorama.style.opacity = '1';
+        panorama.style.maxHeight = '100%';
+    }
+}, 160);
             clearMarkers();
             guessLat = null;
             guessLng = null;
