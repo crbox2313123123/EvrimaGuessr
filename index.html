@@ -19,53 +19,45 @@
     }
     header {
         background: #111133;
-        padding: 12px 15px;
+        padding: 10px 12px;
         text-align: center;
         border-bottom: 4px solid #0f0;
         box-shadow: 0 0 20px #0f0;
         flex-shrink: 0;
     }
     #mobile-header-banner {
-        max-height: 58px;
+        max-height: 54px;
         width: auto;
         image-rendering: pixelated;
     }
     header p {
-        font-size: 0.95rem;
-        margin-top: 6px;
+        font-size: 0.92rem;
+        margin-top: 4px;
         color: #0f0;
         text-shadow: 0 0 8px #0f0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
-    .game-container { 
-        display: flex; 
-        flex: 1; 
-        overflow: hidden; 
-    }
+    .game-container { display: flex; flex: 1; overflow: hidden; }
 
     .view-panel {
         width: 42%;
         background: #05050f;
         display: flex;
         flex-direction: column;
-        padding: 15px;
+        padding: 12px;
         border-right: 4px solid #0f0;
         overflow-y: auto;
         min-width: 380px;
     }
 
-    .banner {
-        background: #111133;
-        border: 4px solid #0f0;
-        box-shadow: 0 0 15px #0f0;
-        text-transform: uppercase;
-        letter-spacing: 2px;
-        image-rendering: pixelated;
-    }
+    .banner { background: #111133; border: 4px solid #0f0; box-shadow: 0 0 15px #0f0; }
 
     #banner-top {
-        height: 68px;
-        margin-bottom: 14px;
+        height: 64px;
+        margin-bottom: 12px;
         padding: 0;
         border: none;
         box-shadow: none;
@@ -88,7 +80,6 @@
         cursor: pointer;
         margin-bottom: 12px;
     }
-
     #panorama {
         max-width: 100%;
         max-height: 100%;
@@ -98,47 +89,60 @@
         transition: opacity 0.18s ease-in-out;
     }
 
-    .map-panel { 
-        flex: 1; 
-        position: relative; 
-        min-width: 0;
+    .map-panel { flex: 1; position: relative; min-width: 0; }
+
+    /* === MOBILE LEADERBOARD BUTTON (top-right of map) === */
+    #mobile-leaderboard-btn {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        background: rgba(10,10,30,0.95);
+        color: #ff0;
+        border: 3px solid #ff0;
+        padding: 8px 14px;
+        font-size: 0.78rem;
+        font-family: 'Press Start 2P', system-ui;
+        cursor: pointer;
+        z-index: 1100;
+        box-shadow: 0 0 15px #ff0;
+        white-space: nowrap;
     }
+    #mobile-leaderboard-btn:hover { background: #ff0; color: #111133; }
+
     #map { width: 100%; height: 100%; }
 
-    /* Controls */
     .controls {
         position: absolute; 
-        bottom: 24px; 
+        bottom: 78px; 
         left: 50%; 
         transform: translateX(-50%);
         background: rgba(10,10,30,0.95); 
-        padding: 12px 32px; 
+        padding: 10px 24px; 
         border: 4px solid #0f0; 
         border-radius: 8px;
         display: flex; 
-        gap: 18px; 
+        gap: 14px; 
         box-shadow: 0 0 30px #0f0; 
         z-index: 1000;
     }
     #mute-btn {
         position: absolute;
-        bottom: 24px;
-        left: 24px;
+        bottom: 18px;
+        left: 18px;
         background: rgba(10,10,30,0.95);
         color: #0f0;
         border: 3px solid #0f0;
-        padding: 10px 18px;
-        font-family: 'Press Start 2P', system-ui;
-        font-size: 0.95rem;
+        padding: 9px 15px;
+        font-size: 0.88rem;
         cursor: pointer;
         z-index: 1000;
         box-shadow: 0 0 15px #0f0;
     }
-    #mute-btn:hover { background: #0f0; color: #111133; }
+
     button {
         font-family: 'Press Start 2P', system-ui;
-        padding: 12px 26px;
-        font-size: 1.05rem;
+        padding: 11px 22px;
+        font-size: 0.98rem;
         background: #111133;
         color: #0f0;
         border: 3px solid #0f0;
@@ -146,165 +150,76 @@
     }
     button:hover { background: #0f0; color: #111133; }
 
-    /* Result & End Screen */
     .result, #end-screen {
         position: absolute;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
         background: rgba(10,10,30,0.98);
-        padding: 32px 48px;
+        padding: 24px 32px;
         border: 4px solid #0f0;
         border-radius: 8px;
         text-align: center;
         z-index: 3000;
         box-shadow: 0 0 50px #0f0;
         max-width: 92%;
-        display: none;
-    }
-
-    /* Highscore Banner */
-    #banner-bottom {
-        display: flex;
-        background: #111133;
-        border: 4px solid #0f0;
-        box-shadow: 0 0 15px #0f0;
-        min-height: 138px;
-        margin-top: auto;
-        flex-shrink: 0;
-    }
-    #highscore-list-container {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        border-right: 4px solid #0f0;
-    }
-    #highscore-header {
-        height: 38px;
-        background: #0a0a1f;
-        color: #ff0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.78rem;
-        letter-spacing: 2.5px;
-        text-shadow: 0 0 8px #ff0;
-        border-bottom: 3px solid #0f0;
-        text-transform: uppercase;
-        flex-shrink: 0;
-    }
-    #highscores-scroll {
-        flex: 1;
+        max-height: 86vh;
         overflow-y: auto;
-        padding: 10px 16px;
-        font-size: 0.84rem;
-        line-height: 1.5;
-        scrollbar-width: thin;
-        scrollbar-color: #0f0 #111133;
-    }
-    #logos-container {
-        flex: 0 0 128px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 8px;
-    }
-    #mini-icon {
-        max-height: 108px;
-        image-rendering: pixelated;
+        font-size: 0.93rem;
     }
 
-    .info {
-        margin-top: 12px;
-        font-size: 0.9rem;
-        line-height: 1.4;
-    }
-
-    /* Fullscreen */
-    #fullscreen-preview {
-        display: none;
-        position: fixed;
-        top: 0; left: 0;
-        width: 100vw;
-        height: 100vh;
-        background: rgba(10,10,30,0.97);
-        z-index: 5000;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-    }
-    #fullscreen-image {
-        max-width: 94%;
-        max-height: 94vh;
-        object-fit: contain;
-        image-rendering: pixelated;
-        box-shadow: 0 0 60px #0f0;
-    }
-    #fullscreen-close {
-        position: absolute;
-        top: 25px;
-        right: 25px;
-        background: #111133;
-        color: #0f0;
-        border: 4px solid #0f0;
-        padding: 12px 24px;
-        font-size: 1.8rem;
-        cursor: pointer;
-        z-index: 5100;
-        box-shadow: 0 0 20px #0f0;
+    /* Highscore area only visible on desktop */
+    #banner-bottom {
+        display: none; /* hidden by default on mobile */
     }
 
     /* ====================== MOBILE RESPONSIVE ====================== */
     @media (max-width: 900px) {
         .game-container { flex-direction: column; }
+        
         .view-panel {
             width: 100% !important;
             border-right: none;
             border-bottom: 4px solid #0f0;
             min-width: unset;
-            max-height: 52vh;
+            max-height: 48vh;
             padding: 10px;
         }
+
         .panorama-container {
             aspect-ratio: 16 / 9;
-            max-height: 195px;
+            max-height: 185px;
             border-width: 5px;
             margin-bottom: 10px;
         }
-        #banner-bottom {
-            min-height: 110px;
-            flex-shrink: 0;
+
+        header p {
+            font-size: 0.86rem;
+            letter-spacing: 0.5px;
         }
-        #highscore-header { height: 34px; font-size: 0.73rem; }
-        #highscores-scroll { font-size: 0.78rem; padding: 8px 10px; }
-        #logos-container { flex: 0 0 92px; }
-        #mini-icon { max-height: 82px; }
+
+        /* Show leaderboard button on mobile map */
+        #mobile-leaderboard-btn { display: block; }
 
         .controls {
-            bottom: 82px;
-            padding: 10px 24px;
-            gap: 14px;
+            bottom: 72px;
+            padding: 9px 20px;
+            gap: 12px;
         }
-        #mute-btn {
-            bottom: 18px;
-            left: 18px;
-            padding: 9px 15px;
-            font-size: 0.88rem;
-        }
-        button { font-size: 0.98rem; padding: 11px 22px; }
+        #mute-btn { bottom: 16px; left: 16px; padding: 8px 13px; font-size: 0.85rem; }
+
+        button { font-size: 0.96rem; padding: 10px 20px; }
 
         .result, #end-screen {
-            padding: 24px 32px;
-            max-height: 86vh;
-            overflow-y: auto;
+            padding: 22px 28px;
+            font-size: 0.91rem;
         }
     }
 
     @media (max-width: 480px) {
-        .panorama-container { max-height: 172px; }
-        .view-panel { max-height: 49vh; }
-        header p { font-size: 0.85rem; }
+        .panorama-container { max-height: 168px; }
+        .view-panel { max-height: 46vh; }
+        header p { font-size: 0.82rem; }
     }
 </style>
 </head>
@@ -339,6 +254,7 @@
         </div>
         <div class="map-panel">
             <div id="map"></div>
+            <button id="mobile-leaderboard-btn" onclick="showMobileLeaderboard()">🏆 LB</button>
             <button id="mute-btn">🔊 MUSIC ON</button>
             <div class="controls">
                 <button id="submit-btn" onclick="submitGuess()">SUBMIT GUESS</button>
@@ -574,6 +490,85 @@
             if (isMusicMuted) { bgMusic.pause(); btn.textContent = '🔇 MUSIC OFF'; }
             else { bgMusic.play().catch(() => {}); btn.textContent = '🔊 MUSIC ON'; }
         }
+
+function showMobileLeaderboard() {
+    // Create full-screen modal
+    const modal = document.createElement('div');
+    modal.id = 'mobile-leaderboard-modal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0; left: 0;
+        width: 100vw; height: 100vh;
+        background: rgba(10,10,30,0.98);
+        z-index: 4000;
+        padding: 20px;
+        overflow-y: auto;
+        font-family: 'Press Start 2P', system-ui;
+        color: #0f0;
+    `;
+
+    modal.innerHTML = `
+        <div style="text-align:center; margin-bottom:24px; color:#ff0; font-size:1.1rem; text-shadow: 0 0 8px #ff0;">
+            GLOBAL LEADERBOARD • TOP EVRIMA
+        </div>
+        <div id="mobile-lb-content" style="margin-bottom:30px; line-height:1.6;">
+            Loading high scores...
+        </div>
+        <button onclick="closeMobileLeaderboard()" 
+                style="width:100%; padding:14px; background:#111133; color:#0f0; border:3px solid #0f0; font-family:'Press Start 2P'; font-size:1rem; cursor:pointer;">
+            CLOSE
+        </button>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Load the actual scores into the modal
+    loadMobileLeaderboard();
+}
+
+// Separate function so we can reuse loadHighscores logic cleanly
+async function loadMobileLeaderboard() {
+    const content = document.getElementById('mobile-lb-content');
+    if (!content) return;
+
+    content.innerHTML = '🔄 Loading...';
+
+    try {
+        const { data, error } = await supabaseClient.from(TABLE_NAME).select('*').order('score', { ascending: false }).limit(25);
+        
+        if (error) throw error;
+        if (!data || data.length === 0) {
+            content.innerHTML = `<div style="text-align:center; padding:40px 0; color:#ff0;">No scores yet!<br>Be the first!</div>`;
+            return;
+        }
+
+        let html = '';
+        data.forEach((entry, i) => {
+            const rank = i + 1;
+            const name = entry.display_name || 'Anonymous';
+            const score = entry.score ? entry.score.toLocaleString('en-US') : '0';
+            const date = entry.created_at ? new Date(entry.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : '';
+            
+            html += `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px dotted rgba(15,240,0,0.3);">
+                    <span style="color:#ff0; min-width:38px;">#${rank}</span>
+                    <span style="color:#0ff; flex:1; padding:0 12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${name}</span>
+                    <span style="color:#0f0; font-weight:bold; min-width:80px; text-align:right;">${score}</span>
+                    <span style="color:#0aa; font-size:0.8rem; white-space:nowrap;">${date}</span>
+                </div>
+            `;
+        });
+        content.innerHTML = html;
+    } catch (err) {
+        content.innerHTML = `<div style="color:#f44; text-align:center;">Failed to load<br><small>${err.message}</small></div>`;
+    }
+}
+
+// Close function
+function closeMobileLeaderboard() {
+    const modal = document.getElementById('mobile-leaderboard-modal');
+    if (modal) modal.remove();
+}
 
         function playSoundEffect(quality) {
             let audio;
