@@ -582,36 +582,36 @@
             pendingScore = 0;
         }
 
-            async function loginWithProvider(provider) {
-                localStorage.setItem('pendingEvrimaScore', totalScore.toString());
-                
-                // Use current origin (works on both localhost and Vercel)
-                const redirectTo = window.location.origin;
+        async function loginWithProvider(provider) {
+            localStorage.setItem('pendingEvrimaScore', totalScore.toString());
+            
+            // This line makes it use the current live URL (Vercel or localhost)
+            const redirectTo = window.location.origin;
 
-                const codeVerifier = generateRandomString(64);
-                const codeChallenge = base64urlencode(await sha256(codeVerifier));
-                const projectRef = SUPABASE_URL.split('/')[3];
-                const codeVerifierKey = `sb-${projectRef}-code-verifier`;
-                localStorage.setItem(codeVerifierKey, codeVerifier);
+            const codeVerifier = generateRandomString(64);
+            const codeChallenge = base64urlencode(await sha256(codeVerifier));
+            const projectRef = SUPABASE_URL.split('/')[3];
+            const codeVerifierKey = `sb-${projectRef}-code-verifier`;
+            localStorage.setItem(codeVerifierKey, codeVerifier);
 
-                const authorizeUrl = new URL(`${SUPABASE_URL}/auth/v1/authorize`);
-                authorizeUrl.searchParams.set('provider', provider.toLowerCase());
-                authorizeUrl.searchParams.set('redirect_to', redirectTo);
-                authorizeUrl.searchParams.set('code_challenge', codeChallenge);
-                authorizeUrl.searchParams.set('code_challenge_method', 'S256');
+            const authorizeUrl = new URL(`${SUPABASE_URL}/auth/v1/authorize`);
+            authorizeUrl.searchParams.set('provider', provider.toLowerCase());
+            authorizeUrl.searchParams.set('redirect_to', redirectTo);
+            authorizeUrl.searchParams.set('code_challenge', codeChallenge);
+            authorizeUrl.searchParams.set('code_challenge_method', 'S256');
 
-                const width = 600, height = 700;
-                const left = window.screenX + (window.outerWidth - width) / 2;
-                const top = window.screenY + (window.outerHeight - height) / 2;
+            const width = 600, height = 700;
+            const left = window.screenX + (window.outerWidth - width) / 2;
+            const top = window.screenY + (window.outerHeight - height) / 2;
 
-                const popup = window.open(authorizeUrl.toString(), `supabase-${provider}-popup`, 
-                    `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes`);
+            const popup = window.open(authorizeUrl.toString(), `supabase-${provider}-popup`, 
+                `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes`);
 
-                if (popup === null) {
-                    alert('Popup blocked. Please allow popups for login.');
-                    localStorage.removeItem('pendingEvrimaScore');
-                }
+            if (popup === null) {
+                alert('Popup blocked. Please allow popups for login.');
+                localStorage.removeItem('pendingEvrimaScore');
             }
+        }
 
         window.addEventListener('message', async (event) => {
             if (event.origin !== window.location.origin) return;
