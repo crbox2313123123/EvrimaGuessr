@@ -230,8 +230,7 @@
             margin: 15px 0;
             box-shadow: 0 0 15px #0f0;
         }
-
-         /* ====================== MOBILE RESPONSIVE ====================== */
+/* ====================== MOBILE RESPONSIVE ====================== */
         @media (max-width: 900px) {
             .game-container {
                 flex-direction: column;
@@ -241,17 +240,18 @@
                 width: 100% !important;
                 border-right: none;
                 border-bottom: 4px solid #0f0;
-                max-height: 48vh;
+                max-height: 45vh;           /* reduced so nothing gets cut off */
                 overflow-y: auto;
             }
 
             .map-panel {
                 flex: 1;
-                min-height: 50vh;
+                min-height: 53vh;
             }
 
+            /* Panorama 15-20% smaller */
             .panorama-container {
-                max-height: 240px;
+                max-height: 195px;
                 border-width: 5px;
             }
 
@@ -261,7 +261,7 @@
 
             #banner-bottom {
                 height: auto;
-                max-height: 140px;
+                max-height: 130px;
                 padding: 6px 0;
             }
 
@@ -283,45 +283,53 @@
                 padding: 10px 8px;
             }
             h1 {
-                font-size: 1.45rem;
+                font-size: 1.4rem;
             }
             header p {
-                font-size: 0.95rem;
+                font-size: 0.9rem;
             }
 
+            /* HIDE coord debug completely on mobile */
+            #coord-debug {
+                display: none !important;
+            }
+
+            /* Submit button: smaller + moved higher up */
             .controls {
-                padding: 10px 20px;
-                bottom: 12px;
-                gap: 12px;
+                padding: 8px 15px;
+                bottom: 75px;               /* higher up so it doesn't get truncated */
+                gap: 10px;
             }
             button {
-                padding: 12px 22px;
-                font-size: 1.05rem;
+                padding: 10px 18px;
+                font-size: 0.95rem;
             }
 
             #mute-btn {
-                padding: 9px 14px;
-                font-size: 0.95rem;
+                padding: 8px 12px;
+                font-size: 0.9rem;
                 bottom: 12px;
                 left: 12px;
             }
 
+            /* Result popup: smaller so "CONTINUE" is not cut off */
             .result, #end-screen {
-                padding: 20px 30px;
+                padding: 18px 25px;
                 max-width: 92%;
+                font-size: 0.95rem;
             }
 
-            #coord-debug {
-                font-size: 0.9rem;
-                padding: 8px 12px;
-                top: 10px;
-                left: 10px;
+            /* Extra safety for buttons inside popups */
+            .result button,
+            #end-screen button {
+                padding: 12px 24px;
+                font-size: 1rem;
             }
         }
 
         @media (max-width: 480px) {
             .panorama-container {
-                max-height: 210px;
+                max-height: 175px;
             }
         }
 
