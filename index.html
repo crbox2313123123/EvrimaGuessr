@@ -85,11 +85,12 @@
             justify-content: center;
             box-shadow: 0 0 30px #0f0;
             cursor: pointer;
+            pointer-events: auto;
         }
         #panorama {
             max-width: 100%;
             max-height: 100%;
-            object-fit: cover;              /* zoomed in - no black edges */
+            object-fit: cover;
             image-rendering: pixelated;
             opacity: 1;
             transition: opacity 0.18s ease-in-out;
@@ -254,67 +255,85 @@
         /* ====================== MOBILE RESPONSIVE ====================== */
         @media (max-width: 900px) {
             .game-container { flex-direction: column; }
+
+            /* BIGGER HEADER ON MOBILE */
+            header {
+                padding: 14px 8px;
+            }
+            h1 {
+                font-size: 1.65rem;
+                line-height: 1.1;
+            }
+            header p {
+                font-size: 0.98rem;
+                margin-top: 4px;
+            }
+
             .view-panel {
                 width: 100% !important;
                 border-right: none;
                 border-bottom: 4px solid #0f0;
-                max-height: 41vh;
+                max-height: 48vh;           /* BIGGER screenshot area */
                 overflow-y: auto;
-                padding: 10px 10px 6px;
+                padding: 12px 10px 8px;
             }
-            .map-panel { flex: 1; min-height: 57vh; }
 
-            #banner-top { height: 54px; }
-            .panorama-container {
-                max-height: 168px;
-                border-width: 4px;
-                margin-bottom: 6px;
+            .map-panel {
+                flex: 1;
+                min-height: 50vh;           /* SMALLER map area */
             }
+
+            #banner-top { height: 58px; }
+            .panorama-container {
+                max-height: 195px;
+                border-width: 5px;
+                margin-bottom: 8px;
+            }
+
             #banner-bottom {
                 height: auto;
-                max-height: 112px;
+                max-height: 118px;
                 padding: 4px 0;
-                margin-top: 6px;
+                margin-top: 8px;
             }
-            #highscore-header { font-size: 0.7rem; height: 30px; }
-            #highscores-scroll { font-size: 0.76rem; padding: 6px 10px; }
+
+            #highscore-header { font-size: 0.72rem; height: 32px; }
+            #highscores-scroll { font-size: 0.78rem; padding: 6px 10px; }
             #logos-container { display: none; }
 
-            header { padding: 8px 6px; }
-            h1 { font-size: 1.32rem; }
-            header p { font-size: 0.84rem; }
-
             .controls {
-                padding: 8px 18px;
-                bottom: 82px;
-                gap: 10px;
+                padding: 9px 20px;
+                bottom: 78px;
+                gap: 12px;
             }
-            button { padding: 9px 20px; font-size: 0.94rem; }
+            button { padding: 10px 22px; font-size: 0.96rem; }
+
             #mute-btn {
-                padding: 8px 12px;
-                font-size: 0.88rem;
-                bottom: 14px;
-                left: 12px;
+                padding: 9px 14px;
+                font-size: 0.9rem;
+                bottom: 15px;
+                left: 15px;
             }
 
             .result, #end-screen {
-                top: 12px;
-                padding: 16px 20px;
+                top: 15px;
+                padding: 20px 25px;
                 max-width: 94%;
-                max-height: 86vh;
+                max-height: 88vh;
                 overflow-y: auto;
-                font-size: 0.9rem;
+                font-size: 0.93rem;
             }
             .result button,
             #end-screen button {
-                padding: 10px 20px;
-                font-size: 0.96rem;
+                padding: 12px 24px;
+                font-size: 1rem;
             }
         }
 
         @media (max-width: 480px) {
-            .panorama-container { max-height: 155px; }
-            .view-panel { max-height: 39vh; }
+            .panorama-container { max-height: 178px; }
+            .view-panel { max-height: 47vh; }
+            h1 { font-size: 1.55rem; }
         }
     </style>
 </head>
@@ -349,7 +368,7 @@
         </div>
         <div class="map-panel">
             <div id="map"></div>
-   
+
             <button id="mute-btn">🔊 MUSIC ON</button>
             <div class="controls">
                 <button id="submit-btn" onclick="submitGuess()">SUBMIT GUESS</button>
@@ -639,10 +658,8 @@
                     panorama.removeEventListener('load', handleLoad);
                 };
                 panorama.addEventListener('load', handleLoad);
-                if (panorama.complete && panorama.naturalHeight !== 0) {
-                    panorama.style.opacity = '1';
-                }
-            }, 160);   // much faster fade - fixes mobile delay
+                if (panorama.complete && panorama.naturalHeight !== 0) panorama.style.opacity = '1';
+            }, 160);
 
             clearMarkers();
             guessLat = null;
@@ -883,12 +900,15 @@
                 mapInstance.off('click', autoStart);
             });
 
-            // Click on panorama opens fullscreen
-            document.getElementById('panorama-container').addEventListener('click', openFullscreen);
+            // Panorama click → fullscreen (works on both desktop and mobile)
+            const panoramaContainer = document.getElementById('panorama-container');
+            panoramaContainer.addEventListener('click', openFullscreen);
+            panoramaContainer.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) openFullscreen();
+            }, { passive: true });
 
             setTimeout(startNewRound, 600);
 
-            // Mobile resize fix
             window.addEventListener('resize', () => {
                 if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
             });
