@@ -230,6 +230,101 @@
             margin: 15px 0;
             box-shadow: 0 0 15px #0f0;
         }
+
+         /* ====================== MOBILE RESPONSIVE ====================== */
+        @media (max-width: 900px) {
+            .game-container {
+                flex-direction: column;
+            }
+
+            .view-panel {
+                width: 100% !important;
+                border-right: none;
+                border-bottom: 4px solid #0f0;
+                max-height: 48vh;
+                overflow-y: auto;
+            }
+
+            .map-panel {
+                flex: 1;
+                min-height: 50vh;
+            }
+
+            .panorama-container {
+                max-height: 240px;
+                border-width: 5px;
+            }
+
+            #panorama {
+                image-rendering: pixelated;
+            }
+
+            #banner-bottom {
+                height: auto;
+                max-height: 140px;
+                padding: 6px 0;
+            }
+
+            #highscore-header {
+                font-size: 0.72rem;
+                height: 34px;
+            }
+
+            #highscores-scroll {
+                font-size: 0.78rem;
+                padding: 8px 12px;
+            }
+
+            #logos-container {
+                display: none;
+            }
+
+            header {
+                padding: 10px 8px;
+            }
+            h1 {
+                font-size: 1.45rem;
+            }
+            header p {
+                font-size: 0.95rem;
+            }
+
+            .controls {
+                padding: 10px 20px;
+                bottom: 12px;
+                gap: 12px;
+            }
+            button {
+                padding: 12px 22px;
+                font-size: 1.05rem;
+            }
+
+            #mute-btn {
+                padding: 9px 14px;
+                font-size: 0.95rem;
+                bottom: 12px;
+                left: 12px;
+            }
+
+            .result, #end-screen {
+                padding: 20px 30px;
+                max-width: 92%;
+            }
+
+            #coord-debug {
+                font-size: 0.9rem;
+                padding: 8px 12px;
+                top: 10px;
+                left: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .panorama-container {
+                max-height: 210px;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -879,6 +974,16 @@
                 mapInstance.off('click', autoStart);
             });
             setTimeout(startNewRound, 600);
+
+            // ==================== MOBILE MAP FIX ====================
+            // Force Leaflet to recalculate size when rotating phone or resizing window
+            window.addEventListener('resize', () => {
+                if (mapInstance) {
+                    setTimeout(() => {
+                        mapInstance.invalidateSize();
+                    }, 250);
+                }
+            });
         };
     </script>
 </body>
