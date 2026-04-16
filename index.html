@@ -858,10 +858,21 @@ async function loginWithProvider(provider) {
     }
 }
 window.addEventListener('message', (event) => {
-    if (event.origin !== window.location.origin) return;
+    console.log('=== AUTH MESSAGE RECEIVED ===');
+    console.log('Origin from popup:', event.origin);
+    console.log('Our page origin:', window.location.origin);
+    console.log('Full message data:', event.data);
+
+    if (event.origin !== window.location.origin) {
+        console.log('→ Origin mismatch - ignoring');
+        return;
+    }
 
     if (event.data && event.data.type === 'SUPABASE_AUTH_CALLBACK') {
         const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
+        console.log('Pending score in localStorage:', pendingScoreStr);
+        console.log('Success flag:', event.data.success);
+        console.log('Session received:', event.data.session ? 'YES' : 'NO');
 
         if (event.data.success && event.data.session && pendingScoreStr) {
             pendingUserId = event.data.session.user.id;
@@ -871,9 +882,11 @@ window.addEventListener('message', (event) => {
             document.getElementById('save-score-section').style.display = 'none';
             document.getElementById('name-prompt-section').style.display = 'block';
             document.getElementById('player-name-input').focus();
+            console.log('→ LOGIN SUCCESS');
         } else {
             localStorage.removeItem('pendingEvrimaScore');
-            alert('Login failed or was cancelled.\n\nPlease try again.');
+            console.log('→ LOGIN FAILED');
+            alert('Login failed.\n\nOpen F12 → Console tab and tell me what it says.');
         }
     }
 });
