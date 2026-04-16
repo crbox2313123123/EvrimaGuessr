@@ -5,234 +5,362 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Isle: Evrima GeoGuessr</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-        font-family: 'Press Start 2P', system-ui;
-        background: #0a0a1f;
-        color: #0f0;
-        overflow: hidden;
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-    }
-    header {
-        background: #111133;
-        padding: 10px 12px;
-        text-align: center;
-        border-bottom: 4px solid #0f0;
-        box-shadow: 0 0 20px #0f0;
-        flex-shrink: 0;
-    }
-    #mobile-header-banner {
-        max-height: 54px;
-        width: auto;
-        image-rendering: pixelated;
-    }
-    header p {
-        font-size: 0.92rem;
-        margin-top: 4px;
-        color: #0f0;
-        text-shadow: 0 0 8px #0f0;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .game-container { display: flex; flex: 1; overflow: hidden; }
-
-    .view-panel {
-        width: 42%;
-        background: #05050f;
-        display: flex;
-        flex-direction: column;
-        padding: 12px;
-        border-right: 4px solid #0f0;
-        overflow-y: auto;
-        min-width: 380px;
-    }
-
-    .banner { background: #111133; border: 4px solid #0f0; box-shadow: 0 0 15px #0f0; }
-
-    #banner-top {
-        height: 64px;
-        margin-bottom: 12px;
-        padding: 0;
-        border: none;
-        box-shadow: none;
-        background: transparent;
-        overflow: hidden;
-    }
-
-    .panorama-container {
-        flex: none;
-        width: 100%;
-        aspect-ratio: 16 / 9;
-        background: #000;
-        border: 6px solid #0f0;
-        border-radius: 8px;
-        overflow: hidden;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 0 30px #0f0;
-        cursor: pointer;
-        margin-bottom: 12px;
-    }
-    #panorama {
-        max-width: 100%;
-        max-height: 100%;
-        object-fit: cover;
-        image-rendering: pixelated;
-        opacity: 1;
-        transition: opacity 0.18s ease-in-out;
-    }
-
-    .map-panel { flex: 1; position: relative; min-width: 0; }
-
-    /* === MOBILE LEADERBOARD BUTTON (top-right of map) === */
-    #mobile-leaderboard-btn {
-        position: absolute;
-        top: 14px;
-        right: 14px;
-        background: rgba(10,10,30,0.95);
-        color: #ff0;
-        border: 3px solid #ff0;
-        padding: 8px 14px;
-        font-size: 0.78rem;
-        font-family: 'Press Start 2P', system-ui;
-        cursor: pointer;
-        z-index: 1100;
-        box-shadow: 0 0 15px #ff0;
-        white-space: nowrap;
-    }
-    #mobile-leaderboard-btn:hover { background: #ff0; color: #111133; }
-
-    #map { width: 100%; height: 100%; }
-
-    .controls {
-        position: absolute; 
-        bottom: 78px; 
-        left: 50%; 
-        transform: translateX(-50%);
-        background: rgba(10,10,30,0.95); 
-        padding: 10px 24px; 
-        border: 4px solid #0f0; 
-        border-radius: 8px;
-        display: flex; 
-        gap: 14px; 
-        box-shadow: 0 0 30px #0f0; 
-        z-index: 1000;
-    }
-    #mute-btn {
-        position: absolute;
-        bottom: 18px;
-        left: 18px;
-        background: rgba(10,10,30,0.95);
-        color: #0f0;
-        border: 3px solid #0f0;
-        padding: 9px 15px;
-        font-size: 0.88rem;
-        cursor: pointer;
-        z-index: 1000;
-        box-shadow: 0 0 15px #0f0;
-    }
-
-    button {
-        font-family: 'Press Start 2P', system-ui;
-        padding: 11px 22px;
-        font-size: 0.98rem;
-        background: #111133;
-        color: #0f0;
-        border: 3px solid #0f0;
-        cursor: pointer;
-    }
-    button:hover { background: #0f0; color: #111133; }
-
-    .result, #end-screen {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(10,10,30,0.98);
-        padding: 24px 32px;
-        border: 4px solid #0f0;
-        border-radius: 8px;
-        text-align: center;
-        z-index: 3000;
-        box-shadow: 0 0 50px #0f0;
-        max-width: 92%;
-        max-height: 86vh;
-        overflow-y: auto;
-        font-size: 0.93rem;
-    }
-
-    /* Highscore area only visible on desktop */
-    #banner-bottom {
-        display: none; /* hidden by default on mobile */
-    }
-
-    /* ====================== MOBILE RESPONSIVE ====================== */
-    @media (max-width: 900px) {
-        .game-container { flex-direction: column; }
-        
-        .view-panel {
-            width: 100% !important;
-            border-right: none;
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Press Start 2P', system-ui;
+            background: #0a0a1f;
+            color: #0f0;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        header {
+            background: #111133;
+            padding: 15px;
+            text-align: center;
             border-bottom: 4px solid #0f0;
-            min-width: unset;
-            max-height: 48vh;
-            padding: 10px;
+            box-shadow: 0 0 20px #0f0;
         }
-
+        h1 { font-size: 1.8rem; text-shadow: 0 0 10px #0f0; }
+        .game-container { display: flex; flex: 1; overflow: hidden; }
+        .view-panel {
+            width: 42%;
+            background: #05050f;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            border-right: 4px solid #0f0;
+        }
+        .banner {
+            height: 72px;
+            background: #111133;
+            border: 4px solid #0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            color: #0f0;
+            text-shadow: 0 0 8px #0f0;
+            box-shadow: 0 0 15px #0f0;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        #banner-top {
+            height: 72px;
+            padding: 0;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        #banner-bottom {
+            height: 144px;
+            margin-top: 12px;
+            margin-bottom: 40px;
+            border-top: 4px solid #0f0;
+            border-bottom: none;
+            background: #111133;
+            box-shadow: 0 0 15px #0f0;
+            display: flex;
+            align-items: stretch;
+            padding: 0;
+        }
         .panorama-container {
+            flex: none;
+            width: 100%;
             aspect-ratio: 16 / 9;
-            max-height: 185px;
-            border-width: 5px;
-            margin-bottom: 10px;
+            background: #000;
+            border: 6px solid #0f0;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 30px #0f0;
+            cursor: pointer;
+            pointer-events: auto;
+            margin-top: 0;
         }
-
-        header p {
-            font-size: 0.86rem;
-            letter-spacing: 0.5px;
+        #panorama {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: cover;
+            image-rendering: pixelated;
+            opacity: 1;
+            transition: opacity 0.18s ease-in-out;
+            will-change: opacity;
         }
-
-        /* Show leaderboard button on mobile map */
-        #mobile-leaderboard-btn { display: block; }
-
+        .map-panel { flex: 1; position: relative; }
+        #map { width: 100%; height: 100%; }
         .controls {
-            bottom: 72px;
-            padding: 9px 20px;
-            gap: 12px;
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(10,10,30,0.95); padding: 12px 30px; border: 4px solid #0f0; border-radius: 8px;
+            display: flex; gap: 15px; box-shadow: 0 0 30px #0f0; z-index: 1000;
         }
-        #mute-btn { bottom: 16px; left: 16px; padding: 8px 13px; font-size: 0.85rem; }
-
-        button { font-size: 0.96rem; padding: 10px 20px; }
-
+        #mute-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(10,10,30,0.95);
+            color: #0f0;
+            border: 3px solid #0f0;
+            padding: 10px 18px;
+            font-family: 'Press Start 2P', system-ui;
+            font-size: 0.95rem;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 0 15px #0f0;
+        }
+        #mute-btn:hover { background: #0f0; color: #111133; }
+        button {
+            font-family: 'Press Start 2P', system-ui;
+            padding: 12px 24px;
+            font-size: 1.1rem;
+            background: #111133;
+            color: #0f0;
+            border: 3px solid #0f0;
+            cursor: pointer;
+        }
+        button:hover { background: #0f0; color: #111133; }
         .result, #end-screen {
-            padding: 22px 28px;
-            font-size: 0.91rem;
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10,10,30,0.98);
+            padding: 30px 50px;
+            border: 4px solid #0f0;
+            border-radius: 8px;
+            text-align: center;
+            z-index: 3000;
+            box-shadow: 0 0 40px #0f0;
+            display: none;
         }
-    }
+        .footer {
+            text-align: center;
+            padding: 10px;
+            font-size: 0.8rem;
+            background: #111133;
+            color: #0a0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+        .info { margin-top: 0; }
+        /* === HIGHSCORE BANNER === */
+        #highscore-list-container {
+            flex: 0 0 80%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-right: 4px solid #0f0;
+        }
+        #highscore-header {
+            height: 38px;
+            background: #0a0a1f;
+            color: #ff0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.78rem;
+            letter-spacing: 2.5px;
+            text-shadow: 0 0 8px #ff0;
+            border-bottom: 3px solid #0f0;
+            text-transform: uppercase;
+        }
+        #highscores-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 18px;
+            color: #0f0;
+            font-size: 0.85rem;
+            line-height: 1.45;
+            scrollbar-width: thin;
+            scrollbar-color: #0f0 #111133;
+        }
+        #highscores-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        #highscores-scroll::-webkit-scrollbar-thumb {
+            background-color: #0f0;
+            border-radius: 20px;
+        }
+        #logos-container {
+            flex: 0 0 20%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #111133;
+            border-left: 4px solid #0f0;
+        }
+        #mini-icon {
+            max-height: 110px;
+            image-rendering: pixelated;
+        }
+        /* === NAME PROMPT === */
+        #name-prompt-section input {
+            background: #111133;
+            color: #0f0;
+            border: 3px solid #0f0;
+            padding: 12px 20px;
+            width: 100%;
+            font-family: 'Press Start 2P', system-ui;
+            font-size: 1.1rem;
+            text-align: center;
+            margin: 15px 0;
+            box-shadow: 0 0 15px #0f0;
+        }
+        /* ====================== FULLSCREEN PANORAMA PREVIEW ====================== */
+        #fullscreen-preview {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(10,10,30,0.97);
+            z-index: 5000;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        #fullscreen-image {
+            max-width: 94%;
+            max-height: 94vh;
+            object-fit: contain;
+            image-rendering: pixelated;
+            box-shadow: 0 0 50px #0f0;
+        }
+        #fullscreen-close {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            background: #111133;
+            color: #0f0;
+            border: 4px solid #0f0;
+            padding: 12px 22px;
+            font-size: 1.6rem;
+            cursor: pointer;
+            z-index: 5100;
+            box-shadow: 0 0 20px #0f0;
+        }
 
-    @media (max-width: 480px) {
-        .panorama-container { max-height: 168px; }
-        .view-panel { max-height: 46vh; }
-        header p { font-size: 0.82rem; }
-    }
-</style>
+        /* ====================== MOBILE RESPONSIVE ====================== */
+        @media (max-width: 900px) {
+            .game-container { flex-direction: column; }
+
+            /* Hide normal title on mobile and show banner instead */
+            header h1 {
+                display: none;
+            }
+
+            #mobile-header-banner {
+                width: 100%;
+                height: 68px;
+                object-fit: contain;
+                margin: 4px 0 6px 0;
+            }
+
+            header {
+                padding: 10px 8px 6px;
+                flex-shrink: 0;
+            }
+
+            header p {
+                font-size: 0.78rem;
+                margin-top: 4px;
+            }
+
+            .view-panel {
+                width: 100% !important;
+                border-right: none;
+                border-bottom: 4px solid #0f0;
+                max-height: 53vh;
+                overflow-y: auto;
+                padding: 10px 10px 6px;
+            }
+
+            .map-panel {
+                flex: 1;
+                min-height: 45vh;
+            }
+
+            #banner-top { height: 62px; }
+            .panorama-container {
+                max-height: 205px;
+                border-width: 5px;
+                margin-top: 0;
+                margin-bottom: 8px;
+            }
+
+            #banner-bottom {
+                height: auto;
+                max-height: 118px;
+                padding: 4px 0;
+                margin-top: 8px;
+            }
+
+            #highscore-header { font-size: 0.72rem; height: 32px; }
+            #highscores-scroll { font-size: 0.78rem; padding: 6px 10px; }
+            #logos-container { display: none; }
+
+            /* Hide footer on mobile */
+            .footer {
+                display: none !important;
+            }
+
+            .controls {
+                padding: 9px 20px;
+                bottom: 78px;
+                gap: 12px;
+            }
+            button { padding: 10px 22px; font-size: 0.96rem; }
+
+            #mute-btn {
+                padding: 9px 14px;
+                font-size: 0.9rem;
+                bottom: 15px;
+                left: 15px;
+            }
+
+            .result, #end-screen {
+                top: 15px;
+                padding: 20px 25px;
+                max-width: 94%;
+                max-height: 88vh;
+                overflow-y: auto;
+                font-size: 0.93rem;
+            }
+            .result button,
+            #end-screen button {
+                padding: 12px 24px;
+                font-size: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .panorama-container { max-height: 188px; }
+            .view-panel { max-height: 51vh; }
+        }
+    </style>
 </head>
 <body>
-<header>
-    <img id="mobile-header-banner" src="mobilebanner.png" alt="The Isle Evrima GeoGuessr">
-    <p>Round <span id="round-num">1</span>/10 — Total Score: <span id="total-score">0</span></p>
-</header>
+    <header>
+        <img id="mobile-header-banner" src="mobilebanner.png" alt="The Isle Evrima GeoGuessr">
+        <p>Round <span id="round-num">1</span>/10 — Total Score: <span id="total-score">0</span></p>
+    </header>
     <div class="game-container">
         <div class="view-panel">
-<div id="banner-top" class="banner">
-    <img src="banner.png" alt="EVRIMAGUESSR" style="width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated;">
-</div>
+            <div id="banner-top" class="banner">
+                <img src="banner.png" alt="The Isle Evrima Banner" style="width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated;">
+            </div>
             <div class="panorama-container" id="panorama-container">
                 <img id="panorama" src="ss0.png" alt="Your location in Evrima">
             </div>
@@ -254,7 +382,6 @@
         </div>
         <div class="map-panel">
             <div id="map"></div>
-            <button id="mobile-leaderboard-btn" onclick="showMobileLeaderboard()">🏆 LB</button>
             <button id="mute-btn">🔊 MUSIC ON</button>
             <div class="controls">
                 <button id="submit-btn" onclick="submitGuess()">SUBMIT GUESS</button>
@@ -491,85 +618,6 @@
             else { bgMusic.play().catch(() => {}); btn.textContent = '🔊 MUSIC ON'; }
         }
 
-function showMobileLeaderboard() {
-    // Create full-screen modal
-    const modal = document.createElement('div');
-    modal.id = 'mobile-leaderboard-modal';
-    modal.style.cssText = `
-        position: fixed;
-        top: 0; left: 0;
-        width: 100vw; height: 100vh;
-        background: rgba(10,10,30,0.98);
-        z-index: 4000;
-        padding: 20px;
-        overflow-y: auto;
-        font-family: 'Press Start 2P', system-ui;
-        color: #0f0;
-    `;
-
-    modal.innerHTML = `
-        <div style="text-align:center; margin-bottom:24px; color:#ff0; font-size:1.1rem; text-shadow: 0 0 8px #ff0;">
-            GLOBAL LEADERBOARD • TOP EVRIMA
-        </div>
-        <div id="mobile-lb-content" style="margin-bottom:30px; line-height:1.6;">
-            Loading high scores...
-        </div>
-        <button onclick="closeMobileLeaderboard()" 
-                style="width:100%; padding:14px; background:#111133; color:#0f0; border:3px solid #0f0; font-family:'Press Start 2P'; font-size:1rem; cursor:pointer;">
-            CLOSE
-        </button>
-    `;
-
-    document.body.appendChild(modal);
-
-    // Load the actual scores into the modal
-    loadMobileLeaderboard();
-}
-
-// Separate function so we can reuse loadHighscores logic cleanly
-async function loadMobileLeaderboard() {
-    const content = document.getElementById('mobile-lb-content');
-    if (!content) return;
-
-    content.innerHTML = '🔄 Loading...';
-
-    try {
-        const { data, error } = await supabaseClient.from(TABLE_NAME).select('*').order('score', { ascending: false }).limit(25);
-        
-        if (error) throw error;
-        if (!data || data.length === 0) {
-            content.innerHTML = `<div style="text-align:center; padding:40px 0; color:#ff0;">No scores yet!<br>Be the first!</div>`;
-            return;
-        }
-
-        let html = '';
-        data.forEach((entry, i) => {
-            const rank = i + 1;
-            const name = entry.display_name || 'Anonymous';
-            const score = entry.score ? entry.score.toLocaleString('en-US') : '0';
-            const date = entry.created_at ? new Date(entry.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : '';
-            
-            html += `
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px dotted rgba(15,240,0,0.3);">
-                    <span style="color:#ff0; min-width:38px;">#${rank}</span>
-                    <span style="color:#0ff; flex:1; padding:0 12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${name}</span>
-                    <span style="color:#0f0; font-weight:bold; min-width:80px; text-align:right;">${score}</span>
-                    <span style="color:#0aa; font-size:0.8rem; white-space:nowrap;">${date}</span>
-                </div>
-            `;
-        });
-        content.innerHTML = html;
-    } catch (err) {
-        content.innerHTML = `<div style="color:#f44; text-align:center;">Failed to load<br><small>${err.message}</small></div>`;
-    }
-}
-
-// Close function
-function closeMobileLeaderboard() {
-    const modal = document.getElementById('mobile-leaderboard-modal');
-    if (modal) modal.remove();
-}
-
         function playSoundEffect(quality) {
             let audio;
             if (quality === "PERFECT!" || quality === "EXCELLENT" || quality === "GREAT") audio = document.getElementById('sfx1');
@@ -592,22 +640,12 @@ function closeMobileLeaderboard() {
             currentLocation = remainingLocations.splice(index, 1)[0];
             const panorama = document.getElementById('panorama');
             panorama.style.opacity = '0';
-setTimeout(() => {
-    panorama.src = currentLocation ? currentLocation.image : 'ss0.png';
-    
-    const handleLoad = () => { 
-        panorama.style.opacity = '1'; 
-        panorama.style.maxHeight = '100%';   // ← This is the new line
-        panorama.removeEventListener('load', handleLoad); 
-    };
-    
-    panorama.addEventListener('load', handleLoad);
-    
-    if (panorama.complete && panorama.naturalHeight !== 0) {
-        panorama.style.opacity = '1';
-        panorama.style.maxHeight = '100%';
-    }
-}, 160);
+            setTimeout(() => {
+                panorama.src = currentLocation ? currentLocation.image : 'ss0.png';
+                const handleLoad = () => { panorama.style.opacity = '1'; panorama.removeEventListener('load', handleLoad); };
+                panorama.addEventListener('load', handleLoad);
+                if (panorama.complete && panorama.naturalHeight !== 0) panorama.style.opacity = '1';
+            }, 160);
             clearMarkers();
             guessLat = null;
             guessLng = null;
