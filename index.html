@@ -27,8 +27,9 @@
         }
         #mobile-header-banner {
             max-height: 54px;
-            width: auto;
+            width: 100%;
             image-rendering: pixelated;
+            object-fit: contain;
         }
         header p {
             font-size: 0.88rem;
@@ -296,42 +297,37 @@
             display: none;
         }
 
-        /* Mobile responsive */
+        /* Mobile responsive - ONLY MOBILE CHANGES (desktop untouched) */
         @media (max-width: 900px) {
             .game-container { flex-direction: column; }
             header h1 { display: none; }
             #mobile-header-banner {
-                width: 100%;
-                height: 68px;
-                object-fit: contain;
-                margin: 4px 0 6px 0;
+                height: 62px;
+                margin: 2px 0 4px 0;
             }
             header {
-                padding: 10px 8px 6px;
+                padding: 6px 8px 4px;
                 flex-shrink: 0;
             }
             #banner-top { display: none; } /* No banner.png on mobile */
             .panorama-container {
-                max-height: 205px;
+                flex: 1;
+                max-height: none;
+                margin-bottom: 0;
                 border-width: 5px;
-                margin-top: 0;
-                margin-bottom: 8px;
             }
             #banner-bottom { display: none; }
+            .info { display: none; } /* Completely remove instructions on mobile */
             #leaderboard-btn {
                 top: 12px;
                 right: 12px;
                 font-size: 1.3rem;
                 padding: 6px 10px;
             }
-            .info {
-                font-size: 0.75rem;
-                line-height: 1.3;
-            }
             .footer { display: none !important; }
             .controls {
                 padding: 9px 20px;
-                bottom: 78px;
+                bottom: 92px; /* raised so Submit Guess is never truncated */
                 gap: 12px;
             }
             button { padding: 10px 22px; font-size: 0.96rem; }
@@ -351,13 +347,16 @@
             }
             #desktop-round-info { display: none; }
             #mobile-round-info { display: block; }
+            .view-panel {
+                max-height: 58vh; /* map area ~8% smaller, gives more space to top/screenshot */
+            }
         }
         @media (max-width: 480px) {
-            .panorama-container { max-height: 188px; }
-            .view-panel { max-height: 51vh; }
+            .panorama-container { max-height: none; }
+            .view-panel { max-height: 56vh; }
         }
 
-        /* Desktop keeps header text */
+        /* Desktop keeps original header text */
         @media (min-width: 901px) {
             #mobile-round-info { display: none; }
         }
