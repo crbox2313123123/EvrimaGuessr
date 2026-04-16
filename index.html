@@ -278,6 +278,24 @@
             box-shadow: 0 0 20px #0f0;
         }
 
+        /* Mobile round/score text on top of map - 35% smaller */
+        #mobile-round-info {
+            position: absolute;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10,10,30,0.95);
+            color: #0f0;
+            font-size: 0.55rem;           /* 35% smaller than previous 0.72rem */
+            padding: 3px 10px;
+            border: 2px solid #0f0;
+            border-radius: 4px;
+            white-space: nowrap;
+            z-index: 1200;
+            box-shadow: 0 0 10px #0f0;
+            display: none;
+        }
+
         /* Mobile responsive */
         @media (max-width: 900px) {
             .game-container { flex-direction: column; }
@@ -292,18 +310,11 @@
                 padding: 10px 8px 6px;
                 flex-shrink: 0;
             }
-            header p {
-                font-size: 0.78rem;
-                margin-top: 4px;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
             .view-panel {
                 width: 100% !important;
                 border-right: none;
                 border-bottom: 4px solid #0f0;
-                max-height: 53vh;
+                max-height: 49vh;           /* smaller map area = more space for banner */
                 overflow-y: auto;
                 padding: 10px 10px 6px;
             }
@@ -321,10 +332,7 @@
                 font-size: 1.3rem;
                 padding: 6px 10px;
             }
-            .info {
-                font-size: 0.75rem;
-                line-height: 1.3;
-            }
+            .info { display: none; }        /* COMPLETELY remove instructions on mobile */
             .footer { display: none !important; }
             .controls {
                 padding: 9px 20px;
@@ -346,15 +354,18 @@
                 overflow-y: auto;
                 font-size: 0.93rem;
             }
+            #desktop-round-info { display: none; }
+            #mobile-round-info { display: block; }
         }
         @media (max-width: 480px) {
             .panorama-container { max-height: 188px; }
-            .view-panel { max-height: 51vh; }
+            .view-panel { max-height: 47vh; }
         }
 
-
-
-        
+        /* Desktop keeps the original header text */
+        @media (min-width: 901px) {
+            #mobile-round-info { display: none; }
+        }
     </style>
 </head>
 <body>
@@ -388,8 +399,8 @@
         </div>
         <div class="map-panel">
             <div id="map"></div>
-            <!-- Mobile round/score text on top of map -->
-            <div id="mobile-round-info" style="position:absolute; top:14px; left:50%; transform:translateX(-50%); background:rgba(10,10,30,0.9); color:#0f0; font-size:0.72rem; padding:4px 12px; border:2px solid #0f0; border-radius:4px; white-space:nowrap; z-index:1100; box-shadow:0 0 10px #0f0; display:none;">
+            <!-- Mobile round/score text on top of map (35% smaller) -->
+            <div id="mobile-round-info">
                 Round <span id="mobile-round-num">1</span>/10 — Score: <span id="mobile-total-score">0</span>
             </div>
 
