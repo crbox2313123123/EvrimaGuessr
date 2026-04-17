@@ -475,7 +475,6 @@
                 <p id="final-score" style="font-size:3rem; color:#0f0; margin:10px 0;"></p>
                 <p style="font-size:1.2rem;">Personal best: <span id="high-score-display" style="color:#ff0;"></span></p>
                 
-                <!-- LOGIN SECTION (only if NOT logged in) -->
                 <div id="save-score-section">
                     <p style="margin:25px 0 15px; font-size:1.1rem;">SAVE TO GLOBAL LEADERBOARD?</p>
                     <button onclick="loginWithProvider('google')" style="margin:8px; background:#4285F4; color:white; border-color:#4285F4; width:240px;">🔵 Login with Google</button>
@@ -483,7 +482,6 @@
                     <button onclick="playAgain()" style="margin-top:20px; background:#333; border-color:#666; width:240px;">PLAY AGAIN WITHOUT SAVING</button>
                 </div>
 
-                <!-- NAME INPUT (shown when logged in or after login) -->
                 <div id="name-prompt-section" style="display:none;">
                     <p style="margin:25px 0 10px; font-size:1.1rem;">CHOOSE YOUR LEADERBOARD NAME</p>
                     <input id="player-name-input" type="text" maxlength="16" placeholder="ENTER NAME (MAX 16)" autocomplete="off">
@@ -491,7 +489,6 @@
                     <button onclick="playAgain()" style="margin-top:8px; background:#333; border-color:#666; width:100%;">PLAY AGAIN (SKIP SAVE)</button>
                 </div>
 
-                <!-- SUCCESS -->
                 <div id="score-saved-section" style="display:none;">
                     <p style="color:#0f0; font-size:1.6rem; margin:25px 0;">✅ SCORE SAVED SUCCESSFULLY!</p>
                     <button onclick="playAgain()" style="margin-top:20px; padding:15px 30px; font-size:1.2rem;">PLAY AGAIN</button>
@@ -522,10 +519,11 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // ====================== v3.9 FINAL MOBILE SCROLL RESET ======================
-        // Panorama always fully visible
-        // After Play Again / highscore, entire webpage scrolls back to top
-        // Leaflet map reset kept exactly as before (you said it's perfect)
+        // v3.91 mobile viewport reset with quick smooth glide
+        // whole page scrolls back up after every next round, continue, play again and after login
+        // leaflet map still flies to center like you wanted
+        // panorama always fully visible on mobile
+        // submit guess button stays non-selectable
 
         let gameInitialized = false;
         const MAP_IMAGE = 'firstdraft.png';
@@ -806,7 +804,7 @@
             document.getElementById('next-btn').style.display = 'none';
             document.getElementById('result-panel').style.display = 'none';
             resetMapView();
-            window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); // FORCE PAGE BACK TO TOP
+            window.scrollTo({ top: 0, left: 0, behavior: 'smooth' }); // quick smooth glide back to top
         }
 
         function clearMarkers() {
@@ -978,7 +976,7 @@
             document.getElementById('total-score').textContent = '0';
             document.getElementById('mobile-total-score').textContent = '0';
             startNewRound();
-            window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); // FORCE WHOLE PAGE BACK TO TOP
+            window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
         }
 
         function clearHighScore() {
@@ -1053,7 +1051,7 @@
         }
 
         function startGame() {
-            console.log('🚀 v3.9 FINAL MOBILE SCROLL RESET STARTING');
+            console.log('v3.91 mobile viewport reset starting');
             initMap();
             remainingLocations = [...LOCATIONS];
             bgMusic = document.getElementById('bg-music');
@@ -1076,11 +1074,11 @@
             window.addEventListener('resize', () => {
                 if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
             });
-            console.log('🚀 v3.9 READY — WHOLE PAGE NOW SCROLLS BACK TO TOP');
+            console.log('v3.91 ready - page now glides back to top on every new round');
         }
 
         async function checkAuth() {
-            console.log('🔑 Checking session');
+            console.log('checking session');
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session?.user) {
                 isLoggedIn = true;
@@ -1095,7 +1093,7 @@
             await startGame();
             await checkAuth();
             supabaseClient.auth.onAuthStateChange((event, session) => {
-                console.log('Auth change:', event);
+                console.log('auth change:', event);
                 if (event === 'SIGNED_IN' && session) {
                     isLoggedIn = true;
                     pendingUserId = session.user.id;
