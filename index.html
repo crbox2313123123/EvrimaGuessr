@@ -829,6 +829,7 @@
         });
 
         window.onload = async function () {
+            // EXACT 1.6 POPUP CALLBACK GUARD — THIS IS THE PART THAT MADE IT WORK
             const isPopupCallback = window.opener !== null && (window.location.hash.includes('access_token') || window.location.search.includes('code=') || window.location.search.includes('error='));
             if (isPopupCallback) {
                 const { createClient } = supabase;
@@ -847,6 +848,7 @@
                 return;
             }
 
+            // Normal game load — 1.6 logic continues here
             initMap();
             remainingLocations = [...LOCATIONS];
             bgMusic = document.getElementById('bg-music');
@@ -857,7 +859,7 @@
             const { createClient } = supabase;
             supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // Persistent login (added to 1.6 base)
+            // Persistent login (only on main page — added after the popup guard)
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
                 isLoggedIn = true;
@@ -881,7 +883,7 @@
                 if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
             });
 
-            console.log('🚀 GAME LOADED — 1.6 auth restored + persistent login + full mobile UI');
+            console.log('🚀 GAME LOADED — EXACT 1.6 AUTH + permanent login + full mobile UI');
         };
     </script>
 </body>
