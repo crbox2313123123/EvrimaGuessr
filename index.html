@@ -403,6 +403,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // ====================== CONFIG ======================
+        let gameInitialized = false;
         const MAP_IMAGE = 'firstdraft.png';
         const MAX_ROUNDS = 10;
         const SUPABASE_URL = 'https://cgufpeetcjywisqvhqlk.supabase.co';
@@ -800,8 +801,8 @@ async function loginWithProvider(provider) {
 
 
 
-(async () => {
-    console.log('%c🚀 [DEBUG] Normal game load - starting 1.6 logic', 'color:#0f0');
+async function startGame() {
+    console.log('🚀 GAME STARTING');
 
     initMap();
     remainingLocations = [...LOCATIONS];
@@ -813,28 +814,6 @@ async function loginWithProvider(provider) {
 
     const { createClient } = supabase;
     supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    console.log('%c🔑 [DEBUG] Checking session', 'color:#ff0');
-
-    const { data: { session } } = await supabaseClient.auth.getSession();
-
-    if (session) {
-        console.log('%c✅ User logged in', 'color:#0f0');
-
-        isLoggedIn = true;
-        pendingUserId = session.user.id;
-
-        const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
-
-        if (pendingScoreStr) {
-            pendingScore = parseInt(pendingScoreStr);
-            localStorage.removeItem('pendingEvrimaScore');
-
-            document.getElementById('save-score-section').style.display = 'none';
-            document.getElementById('name-prompt-section').style.display = 'block';
-            document.getElementById('player-name-input').focus();
-        }
-    }
 
     loadHighscores();
 
@@ -855,8 +834,34 @@ async function loginWithProvider(provider) {
         if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
     });
 
-    console.log('🚀 GAME LOADED — FIXED AUTH WRAPPER');
-})();
+    console.log('🚀 GAME LOADED');
+}
+
+async function checkAuth() {
+    console.log('🔑 Checking session');
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+
+    if (session) {
+        console.log('✅ User logged in');
+
+        isLoggedIn = true;
+        pendingUserId = session.user.id;
+
+        const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
+
+        if (pendingScoreStr) {
+            pendingScore = parseInt(pendingScoreStr);
+            localStorage.removeItem('pendingEvrimaScore');
+
+            document.getElementById('save-score-section').style.display = 'none';
+            document.getElementById('name-prompt-section').style.display = 'block';
+            document.getElementById('player-name-input').focus();
+        }
+    }
+}
+
+startGame().then(checkAuth);
     </script>
 </body>
 </html>
