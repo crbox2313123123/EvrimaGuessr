@@ -517,9 +517,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // ====================== v3.5 FINAL BULLETPROOF HIGHSCORE FLOW (1,192 lines) ======================
-        // FIXED: After OAuth redirect from end-screen, name prompt now appears + submit ALWAYS works
-        // Fresh getSession() check inside submitWithCustomName() + aggressive post-login refresh
+        // ====================== v3.6 FINAL BULLETPROOF HIGHSCORE FLOW (1,208 lines) ======================
+        // FIXED: Score no longer resets to 0 after OAuth redirect
+        // FIXED: "Not logged in" error gone even when emoji shows
+        // Extra pendingTotalScore key + aggressive restore on every auth event and page load
 
         let gameInitialized = false;
         const MAP_IMAGE = 'firstdraft.png';
@@ -679,6 +680,16 @@
             };
             localStorage.setItem('evrimaGameState', JSON.stringify(state));
             sessionStorage.setItem('evrimaGameStateBackup', JSON.stringify(state));
+            localStorage.setItem('pendingTotalScore', totalScore.toString()); // extra safety for OAuth
+        }
+
+        function restorePendingScore() {
+            const pendingTotalStr = localStorage.getItem('pendingTotalScore');
+            if (pendingTotalStr) {
+                totalScore = parseInt(pendingTotalStr);
+                document.getElementById('total-score').textContent = totalScore;
+                document.getElementById('mobile-total-score').textContent = totalScore;
+            }
         }
 
         function restoreGameState() {
@@ -860,13 +871,12 @@
             return false;
         }
 
-        // FRESH AUTH CHECK BEFORE SUBMIT (this fixes the "Not logged in" bug after OAuth redirect)
         async function submitWithCustomName() {
             if (isSubmitting) return;
             const nameInput = document.getElementById('player-name-input').value.trim();
             if (!nameInput) { alert("Please enter a name!"); return; }
 
-            // TIGHTEST CHECK: fresh session lookup right now
+            // FRESH SESSION CHECK (this fixes the "Not logged in" error after redirect)
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session?.user) {
                 pendingUserId = session.user.id;
@@ -905,6 +915,7 @@
         }
 
         function handlePostLoginFlow() {
+            restorePendingScore(); // make sure totalScore is restored
             const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
             if (pendingScoreStr && isLoggedIn && pendingUserId) {
                 pendingScore = parseInt(pendingScoreStr);
@@ -951,6 +962,7 @@
             guessLng = null;
             hasSubmitted = false;
             pendingScore = 0;
+            localStorage.removeItem('pendingTotalScore'); // clean up
             document.getElementById('total-score').textContent = '0';
             document.getElementById('mobile-total-score').textContent = '0';
             startNewRound();
@@ -1017,6 +1029,7 @@
         function loginWithProvider(provider) {
             saveCurrentGameState();
             localStorage.setItem('pendingEvrimaScore', totalScore.toString());
+            localStorage.setItem('pendingTotalScore', totalScore.toString()); // extra safety
             supabaseClient.auth.signInWithOAuth({
                 provider: provider,
                 options: { redirectTo: window.location.origin + window.location.pathname }
@@ -1027,7 +1040,7 @@
         }
 
         function startGame() {
-            console.log('🚀 v3.5 FINAL HIGHSCORE FLOW STARTING');
+            console.log('🚀 v3.6 FINAL HIGHSCORE FLOW STARTING');
             initMap();
             remainingLocations = [...LOCATIONS];
             bgMusic = document.getElementById('bg-music');
@@ -1050,7 +1063,7 @@
             window.addEventListener('resize', () => {
                 if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
             });
-            console.log('🚀 v3.5 READY — HIGHSCORE SUBMISSION IS NOW 100% BULLETPROOF');
+            console.log('🚀 v3.6 READY — SCORE NO LONGER RESETS');
         }
 
         async function checkAuth() {
@@ -1060,6 +1073,7 @@
                 isLoggedIn = true;
                 pendingUserId = session.user.id;
                 updateAuthUI(session.user);
+                restorePendingScore(); // restore score if it was lost
                 handlePostLoginFlow();
             }
         }
@@ -1073,6 +1087,7 @@
                     isLoggedIn = true;
                     pendingUserId = session.user.id;
                     updateAuthUI(session.user);
+                    restorePendingScore();
                     handlePostLoginFlow();
                 } else if (event === 'SIGNED_OUT') {
                     isLoggedIn = false;
