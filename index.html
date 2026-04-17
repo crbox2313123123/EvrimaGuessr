@@ -24,6 +24,7 @@
             border-bottom: 4px solid #0f0;
             box-shadow: 0 0 20px #0f0;
             flex-shrink: 0;
+            position: relative;
         }
         #mobile-header-banner {
             max-height: 54px;
@@ -38,6 +39,18 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+        #logged-in-indicator {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            font-size: 0.68rem;
+            color: #0ff;
+            background: rgba(0,255,255,0.2);
+            padding: 3px 9px;
+            border-radius: 4px;
+            border: 1px solid #0ff;
+            display: none;
         }
 
         .game-container { display: flex; flex: 1; overflow: hidden; }
@@ -114,7 +127,6 @@
         .map-panel { flex: 1; position: relative; min-width: 0; }
         #map { width: 100%; height: 100%; }
 
-        /* Leaderboard button - top right of map */
         #leaderboard-btn {
             position: absolute;
             top: 14px;
@@ -161,7 +173,6 @@
         }
         button:hover { background: #0f0; color: #111133; }
 
-        /* Popups - properly sized */
         .result, #end-screen {
             position: absolute;
             top: 50%;
@@ -207,7 +218,6 @@
             justify-content: space-between;
         }
 
-        /* Desktop leaderboard auto-scroll */
         #highscore-list-container {
             flex: 0 0 80%;
             display: flex;
@@ -252,7 +262,6 @@
             cursor: pointer;
         }
 
-        /* Fullscreen preview */
         #fullscreen-preview {
             display: none;
             position: fixed;
@@ -286,7 +295,6 @@
             box-shadow: 0 0 20px #0f0;
         }
 
-        /* Mobile round/score text on top of map - 35% smaller */
         #mobile-round-info {
             position: absolute;
             top: 14px;
@@ -304,64 +312,39 @@
             display: none;
         }
 
-        /* Mobile responsive - NO mid-match login button */
+        /* NEW: Logging In overlay */
+        #logging-in-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(10,10,30,0.98);
+            z-index: 6000;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: #0f0;
+            font-size: 1.4rem;
+            text-shadow: 0 0 15px #0f0;
+        }
+
         @media (max-width: 900px) {
             .game-container { flex-direction: column; }
             header h1 { display: none; }
-            #mobile-header-banner {
-                width: 100%;
-                height: 54px;
-                object-fit: contain;
-                margin: 0 0 6px 0;
-            }
-            header {
-                padding: 24px 8px 6px;
-                flex-shrink: 0;
-            }
-            .view-panel {
-                width: 100% !important;
-                border-right: none;
-                border-bottom: 4px solid #0f0;
-                max-height: 49vh;
-                overflow-y: auto;
-                padding: 10px 10px 6px;
-            }
+            #mobile-header-banner { width: 100%; height: 54px; object-fit: contain; margin: 0 0 6px 0; }
+            header { padding: 24px 8px 6px; flex-shrink: 0; }
+            .view-panel { width: 100% !important; border-right: none; border-bottom: 4px solid #0f0; max-height: 49vh; overflow-y: auto; padding: 10px 10px 6px; }
             #banner-top { display: none; }
-            .panorama-container {
-                max-height: 205px;
-                border-width: 5px;
-                margin-top: 0;
-                margin-bottom: 8px;
-            }
+            .panorama-container { max-height: 205px; border-width: 5px; margin-top: 0; margin-bottom: 8px; }
             #banner-bottom { display: none; }
-            #leaderboard-btn {
-                top: 12px;
-                right: 12px;
-                font-size: 1.3rem;
-                padding: 6px 10px;
-            }
+            #leaderboard-btn { top: 12px; right: 12px; font-size: 1.3rem; padding: 6px 10px; }
             .info { display: block; }
             .footer { display: none !important; }
-            .controls {
-                padding: 9px 20px;
-                bottom: 78px;
-                gap: 12px;
-            }
+            .controls { padding: 9px 20px; bottom: 78px; gap: 12px; }
             button { padding: 10px 22px; font-size: 0.96rem; }
-            #mute-btn {
-                padding: 9px 14px;
-                font-size: 0.9rem;
-                bottom: 15px;
-                left: 15px;
-            }
-            .result, #end-screen {
-                top: 15px;
-                padding: 20px 25px;
-                max-width: 94%;
-                max-height: 88vh;
-                overflow-y: auto;
-                font-size: 0.93rem;
-            }
+            #mute-btn { padding: 9px 14px; font-size: 0.9rem; bottom: 15px; left: 15px; }
+            .result, #end-screen { top: 15px; padding: 20px 25px; max-width: 94%; max-height: 88vh; overflow-y: auto; font-size: 0.93rem; }
             #desktop-round-info { display: none; }
             #mobile-round-info { display: block; }
             #desktop-login-btn { display: none !important; }
@@ -370,8 +353,6 @@
             .panorama-container { max-height: 188px; }
             .view-panel { max-height: 47vh; }
         }
-
-        /* Desktop keeps original header text + shows mid-match login button */
         @media (min-width: 901px) {
             #mobile-round-info { display: none; }
             #desktop-login-btn { display: inline-block; }
@@ -382,7 +363,9 @@
     <header>
         <img id="mobile-header-banner" src="mobilebanner.png" alt="The Isle Evrima GeoGuessr">
         <p id="desktop-round-info">Round <span id="round-num">1</span>/10 — Total Score: <span id="total-score">0</span></p>
+        <div id="logged-in-indicator">✅ LOGGED IN</div>
     </header>
+
     <div class="game-container">
         <div class="view-panel">
             <div id="banner-top" class="banner">
@@ -394,9 +377,7 @@
             <div id="banner-bottom">
                 <div id="highscore-list-container">
                     <div id="highscore-header">GLOBAL LEADERBOARD • TOP EVRIMA SCORES</div>
-                    <div id="highscores-scroll">
-                        Loading high scores...
-                    </div>
+                    <div id="highscores-scroll">Loading high scores...</div>
                 </div>
                 <div id="logos-container">
                     <img id="mini-icon" src="miniicon.png" alt="Submit Screenshot" onclick="submitScreenshot()">
@@ -407,13 +388,13 @@
                     <strong>Where are you on the island?</strong><br>
                     Click the map → place your guess
                 </div>
-                <!-- Desktop-only mid-match login button -->
                 <button id="desktop-login-btn" onclick="handleManualLogin()" 
                         style="background:#4285F4; color:white; border:3px solid #4285F4; padding:6px 14px; font-size:0.8rem; white-space:nowrap; margin-left:12px;">
                     🔑 LOGIN
                 </button>
             </div>
         </div>
+
         <div class="map-panel">
             <div id="map"></div>
             <div id="mobile-round-info">
@@ -421,18 +402,20 @@
             </div>
 
             <button id="leaderboard-btn" onclick="showLeaderboardPopup()">🏆</button>
-
             <button id="mute-btn">🔊 MUSIC ON</button>
+
             <div class="controls">
                 <button id="submit-btn" onclick="submitGuess()">SUBMIT GUESS</button>
                 <button id="next-btn" onclick="nextRound()" style="display: none;">NEXT ROUND →</button>
             </div>
+
             <div class="result" id="result-panel">
                 <h2 id="result-title" style="color:#0f0; margin-bottom:10px;">ROUND COMPLETE</h2>
                 <p id="distance-text" style="font-size:1.4rem; margin:15px 0;"></p>
                 <p id="points-text" style="font-size:2.2rem; margin:10px 0;"></p>
                 <button onclick="hideResultAndNext()" style="margin-top:15px;">CONTINUE</button>
             </div>
+
             <div id="end-screen">
                 <h2 style="color:#0f0; margin-bottom:20px;">GAME COMPLETE</h2>
                 <p style="font-size:1.3rem;">Your total score:</p>
@@ -453,23 +436,29 @@
                 </div>
                 <div id="score-saved-section" style="display:none;">
                     <p style="color:#0f0; font-size:1.55rem; margin:22px 0;">✅ SCORE SAVED SUCCESSFULLY!</p>
+                    <button onclick="playAgain()" style="margin-top:18px; padding:14px 28px; font-size:1.15rem;">PLAY AGAIN</button>
                 </div>
                 <button onclick="playAgain()" style="margin-top:18px; padding:14px 28px; font-size:1.15rem;">PLAY AGAIN</button>
                 <button onclick="clearHighScore()" style="margin-top:8px; background:#330000; border-color:#f00;">Clear High Score</button>
             </div>
         </div>
     </div>
+
     <div class="footer">
         Evrima GeoGuessr • Made by kAzin • High score saved locally
     </div>
 
-    <!-- FULLSCREEN PANORAMA PREVIEW -->
     <div id="fullscreen-preview">
         <div id="fullscreen-close" onclick="closeFullscreen()">✕</div>
         <img id="fullscreen-image" src="" alt="Fullscreen Evrima View">
     </div>
 
-    <!-- AUDIO -->
+    <!-- NEW: Logging In overlay -->
+    <div id="logging-in-overlay">
+        <div style="font-size:1.6rem; margin-bottom:20px;">LOGGING IN...</div>
+        <div style="color:#0aa; font-size:0.9rem;">Please wait while we connect to Discord/Google</div>
+    </div>
+
     <audio id="bg-music" loop preload="auto"><source src="background-music.mp3" type="audio/mpeg"></audio>
     <audio id="sfx1" preload="auto"><source src="sfx1.wav" type="audio/wav"></audio>
     <audio id="sfx2" preload="auto"><source src="sfx2.mp3" type="audio/mpeg"></audio>
@@ -633,7 +622,6 @@
         }
 
         function submitScreenshot() {
-            console.log('🔗 Opening Discord screenshot channel');
             window.open('https://discord.gg/tXt3HW45Sq', '_blank');
         }
 
@@ -748,9 +736,16 @@
         }
         function nextRound() { hideResultAndNext(); }
 
-        // NEW BULLETPROOF END-SCREEN LOGIC
-        function showEndScreen(isSaved = false) {
-            console.log('=== SHOW END SCREEN === pendingUserId:', pendingUserId, 'isLoggedIn:', isLoggedIn);
+        // ====================== NEW CLEAN LOGIN FLOW ======================
+        function showLoggingInOverlay() {
+            const overlay = document.getElementById('logging-in-overlay');
+            overlay.style.display = 'flex';
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 1200);
+        }
+
+        function showEndScreen() {
             const endScreen = document.getElementById('end-screen');
             let gotNewHighScore = false;
             if (totalScore > highScore) {
@@ -761,20 +756,17 @@
             document.getElementById('final-score').textContent = totalScore;
             document.getElementById('high-score-display').textContent = highScore;
 
-            // BULLETPROOF CHECK: if already logged in, skip login buttons completely
             if (pendingUserId || isLoggedIn) {
-                console.log('✅ Already logged in - skipping login prompt');
+                // Already logged in → go straight to name prompt
                 document.getElementById('save-score-section').style.display = 'none';
                 document.getElementById('name-prompt-section').style.display = 'block';
-                const nameInput = document.getElementById('player-name-input');
-                nameInput.value = currentDisplayName || '';
-                nameInput.focus();
+                document.getElementById('score-saved-section').style.display = 'none';
             } else {
-                console.log('🔑 Not logged in - showing login buttons');
+                // Not logged in → show login buttons
                 document.getElementById('save-score-section').style.display = 'block';
                 document.getElementById('name-prompt-section').style.display = 'none';
+                document.getElementById('score-saved-section').style.display = 'none';
             }
-            document.getElementById('score-saved-section').style.display = isSaved ? 'block' : 'none';
             endScreen.style.display = 'block';
             if (gotNewHighScore) playSFX('sfx6'); else playSFX('sfx5');
         }
@@ -796,6 +788,86 @@
             }
         }
 
+        async function loginWithProvider(provider) {
+            const redirectTo = window.location.origin + window.location.pathname;
+            const codeVerifier = generateRandomString(64);
+            const codeChallenge = base64urlencode(await sha256(codeVerifier));
+
+            const urlObj = new URL(SUPABASE_URL);
+            const projectRef = urlObj.hostname.split('.')[0];
+            const codeVerifierKey = `sb-${projectRef}-auth-token-code-verifier`;
+            localStorage.setItem(codeVerifierKey, codeVerifier);
+
+            const authorizeUrl = new URL(`${SUPABASE_URL}/auth/v1/authorize`);
+            authorizeUrl.searchParams.set('provider', provider.toLowerCase());
+            authorizeUrl.searchParams.set('redirect_to', redirectTo);
+            authorizeUrl.searchParams.set('code_challenge', codeChallenge);
+            authorizeUrl.searchParams.set('code_challenge_method', 'S256');
+
+            const width = 620, height = 720;
+            const left = window.screenX + (window.outerWidth - width) / 2;
+            const top = window.screenY + (window.outerHeight - height) / 2;
+
+            window.open(authorizeUrl.toString(), `supabase-${provider}-popup`,
+                `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes`);
+        }
+
+        window.addEventListener('message', (event) => {
+            if (event.origin !== window.location.origin) return;
+            if (event.data && event.data.type === 'SUPABASE_AUTH_CALLBACK') {
+                if (event.data.success && event.data.session) {
+                    pendingUserId = event.data.session.user.id;
+                    isLoggedIn = true;
+                    document.getElementById('logged-in-indicator').style.display = 'block';
+
+                    // Show the "Logging In..." overlay then go to name prompt (or back to game if mid-match)
+                    showLoggingInOverlay();
+
+                    const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
+                    if (pendingScoreStr) {
+                        pendingScore = parseInt(pendingScoreStr);
+                        localStorage.removeItem('pendingEvrimaScore');
+                        // We are at end screen → switch to name prompt
+                        setTimeout(() => {
+                            document.getElementById('save-score-section').style.display = 'none';
+                            document.getElementById('name-prompt-section').style.display = 'block';
+                            document.getElementById('player-name-input').focus();
+                        }, 1300);
+                    }
+                }
+            }
+        });
+
+        async function handleManualLogin() {
+            localStorage.setItem('pendingEvrimaScore', totalScore.toString());
+            await loginWithProvider('discord');
+        }
+
+        async function checkPersistentLogin() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session && session.user) {
+                    pendingUserId = session.user.id;
+                    isLoggedIn = true;
+                    const savedName = localStorage.getItem('evrimaLastDisplayName');
+                    if (savedName) currentDisplayName = savedName;
+                    document.getElementById('logged-in-indicator').style.display = 'block';
+                }
+            } catch (e) {}
+        }
+
+        function openFullscreen() {
+            const preview = document.getElementById('fullscreen-preview');
+            const img = document.getElementById('fullscreen-image');
+            img.src = document.getElementById('panorama').src;
+            preview.style.display = 'flex';
+        }
+
+        function closeFullscreen() {
+            document.getElementById('fullscreen-preview').style.display = 'none';
+        }
+
+        // Rest of the game code (leaderboard, submitScore, etc.) remains exactly the same
         async function loadHighscores() {
             const container = document.getElementById('highscores-scroll');
             container.innerHTML = '🔄 Loading leaderboard...';
@@ -825,13 +897,11 @@
             }
         }
 
-        // Reliable slow scroll (works with 16+ entries)
         function startLeaderboardScroll() {
             const scrollContainer = document.getElementById('highscores-scroll');
             if (!scrollContainer) return;
             let scrollSpeed = 0.22;
             let scrollInterval;
-
             const doScroll = () => {
                 scrollInterval = setInterval(() => {
                     if (scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight - 8) {
@@ -841,14 +911,9 @@
                     }
                 }, 40);
             };
-
             setTimeout(doScroll, 2500);
-
             scrollContainer.addEventListener('mouseenter', () => clearInterval(scrollInterval));
-            scrollContainer.addEventListener('mouseleave', () => {
-                clearInterval(scrollInterval);
-                doScroll();
-            });
+            scrollContainer.addEventListener('mouseleave', () => { clearInterval(scrollInterval); doScroll(); });
         }
 
         function showLeaderboardPopup() {
@@ -926,101 +991,6 @@
             pendingScore = 0;
         }
 
-        // NEW MANUAL LOGIN FOR DESKTOP MID-MATCH
-        async function handleManualLogin() {
-            console.log('=== MANUAL LOGIN CLICKED (desktop) ===');
-            localStorage.setItem('pendingEvrimaScore', totalScore.toString());
-            await loginWithProvider('discord'); // default to Discord - change if you prefer Google
-        }
-
-        async function loginWithProvider(provider) {
-            console.log(`=== STARTING ${provider.toUpperCase()} LOGIN ===`);
-            const redirectTo = window.location.origin;
-            const codeVerifier = generateRandomString(64);
-            const codeChallenge = base64urlencode(await sha256(codeVerifier));
-            const projectRef = SUPABASE_URL.split('/')[3];
-            const codeVerifierKey = `sb-${projectRef}-code-verifier`;
-            localStorage.setItem(codeVerifierKey, codeVerifier);
-
-            const authorizeUrl = new URL(`${SUPABASE_URL}/auth/v1/authorize`);
-            authorizeUrl.searchParams.set('provider', provider.toLowerCase());
-            authorizeUrl.searchParams.set('redirect_to', redirectTo);
-            authorizeUrl.searchParams.set('code_challenge', codeChallenge);
-            authorizeUrl.searchParams.set('code_challenge_method', 'S256');
-
-            const width = 620;
-            const height = 720;
-            const left = window.screenX + (window.outerWidth - width) / 2;
-            const top = window.screenY + (window.outerHeight - height) / 2;
-
-            const popup = window.open(
-                authorizeUrl.toString(),
-                `supabase-${provider}-popup`,
-                `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes`
-            );
-
-            if (popup === null) {
-                console.error('Popup blocked');
-                alert('Popup was blocked. Please allow popups and try again.');
-                localStorage.removeItem('pendingEvrimaScore');
-            }
-        }
-
-        window.addEventListener('message', (event) => {
-            if (event.origin !== window.location.origin) return;
-            console.log('=== AUTH MESSAGE RECEIVED ===', event.data);
-            if (event.data && event.data.type === 'SUPABASE_AUTH_CALLBACK') {
-                const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
-                if (event.data.success && event.data.session && pendingScoreStr) {
-                    console.log('✅ LOGIN SUCCESS - setting pendingUserId');
-                    pendingUserId = event.data.session.user.id;
-                    isLoggedIn = true;
-                    pendingScore = parseInt(pendingScoreStr);
-                    localStorage.removeItem('pendingEvrimaScore');
-                    document.getElementById('save-score-section').style.display = 'none';
-                    document.getElementById('name-prompt-section').style.display = 'block';
-                    document.getElementById('player-name-input').focus();
-                } else {
-                    console.log('❌ LOGIN FAILED');
-                    localStorage.removeItem('pendingEvrimaScore');
-                    alert('Login failed or was cancelled.\n\nPlease try again.');
-                }
-            }
-        });
-
-        // BULLETPROOF persistent login check
-        async function checkPersistentLogin() {
-            console.log('=== CHECKING PERSISTENT LOGIN ===');
-            try {
-                const { data: { session } } = await supabaseClient.auth.getSession();
-                console.log('Session from Supabase:', session ? 'EXISTS' : 'NONE');
-                if (session && session.user) {
-                    pendingUserId = session.user.id;
-                    isLoggedIn = true;
-                    const savedName = localStorage.getItem('evrimaLastDisplayName');
-                    if (savedName) currentDisplayName = savedName;
-                    console.log('✅ USER IS ALREADY LOGGED IN - ID:', pendingUserId);
-                } else {
-                    console.log('❌ No active session');
-                    isLoggedIn = false;
-                    pendingUserId = null;
-                }
-            } catch (e) {
-                console.error('Session check failed:', e);
-            }
-        }
-
-        function openFullscreen() {
-            const preview = document.getElementById('fullscreen-preview');
-            const img = document.getElementById('fullscreen-image');
-            img.src = document.getElementById('panorama').src;
-            preview.style.display = 'flex';
-        }
-
-        function closeFullscreen() {
-            document.getElementById('fullscreen-preview').style.display = 'none';
-        }
-
         window.onload = async function () {
             const isPopupCallback = window.opener !== null && (window.location.hash.includes('access_token') || window.location.search.includes('code=') || window.location.search.includes('error='));
             if (isPopupCallback) {
@@ -1047,7 +1017,6 @@
             const { createClient } = supabase;
             supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // Bulletproof persistent login
             await checkPersistentLogin();
 
             loadHighscores();
@@ -1068,7 +1037,7 @@
                 if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
             });
 
-            console.log('🚀 GAME LOADED - Persistent login check complete');
+            console.log('🚀 The Isle: Evrima GeoGuessr — login flow cleaned');
         };
     </script>
 </body>
