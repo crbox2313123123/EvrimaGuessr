@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>The Isle: Evrima GeoGuessr</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -717,25 +717,33 @@
             }
         }
 
-        function initMap() {
-            mapInstance = L.map('map', { crs: L.CRS.Simple, minZoom: -5, maxZoom: 6, zoomSnap: 0.25 });
-            const img = new Image();
-            img.src = MAP_IMAGE;
-            img.onload = function () {
-                const bounds = [[0, 0], [img.height, img.width]];
-                L.imageOverlay(MAP_IMAGE, bounds).addTo(mapInstance);
-                initialCenter = [img.height / 2, img.width / 2];
-                initialZoom = -1;
-                mapInstance.setView(initialCenter, initialZoom);
-                mapInstance.on('click', function (e) {
-                    if (hasSubmitted || !currentLocation) return;
-                    if (guessMarker) mapInstance.removeLayer(guessMarker);
-                    guessLat = e.latlng.lat;
-                    guessLng = e.latlng.lng;
-                    guessMarker = L.circleMarker(e.latlng, { color: '#f00', fillColor: '#f00', fillOpacity: 0.9, radius: 14, weight: 5 }).addTo(mapInstance);
-                });
-            };
-        }
+function initMap() {
+    mapInstance = L.map('map', { 
+        crs: L.CRS.Simple, 
+        minZoom: -5, 
+        maxZoom: 6, 
+        zoomSnap: 0.25,
+        doubleClickZoom: false,   // ← prevents spam-click zoom on iPhone
+        tap: true                 // keeps normal tap behavior
+    });
+    
+    const img = new Image();
+    img.src = MAP_IMAGE;
+    img.onload = function () {
+        const bounds = [[0, 0], [img.height, img.width]];
+        L.imageOverlay(MAP_IMAGE, bounds).addTo(mapInstance);
+        initialCenter = [img.height / 2, img.width / 2];
+        initialZoom = -1;
+        mapInstance.setView(initialCenter, initialZoom);
+        mapInstance.on('click', function (e) {
+            if (hasSubmitted || !currentLocation) return;
+            if (guessMarker) mapInstance.removeLayer(guessMarker);
+            guessLat = e.latlng.lat;
+            guessLng = e.latlng.lng;
+            guessMarker = L.circleMarker(e.latlng, { color: '#f00', fillColor: '#f00', fillOpacity: 0.9, radius: 14, weight: 5 }).addTo(mapInstance);
+        });
+    };
+}
 
         function resetMapView() {
             if (mapInstance && initialCenter) mapInstance.flyTo(initialCenter, initialZoom, { duration: 1.8, easeLinearity: 0.25 });
