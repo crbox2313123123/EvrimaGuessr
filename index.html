@@ -452,10 +452,9 @@
         <img id="fullscreen-image" src="" alt="Fullscreen Evrima View">
     </div>
 
-    <!-- Logging In overlay -->
     <div id="logging-in-overlay">
         <div style="font-size:1.6rem; margin-bottom:20px;">LOGGING IN...</div>
-        <div style="color:#0aa; font-size:0.9rem;">Connecting to Discord / Google...</div>
+        <div style="color:#0aa; font-size:0.9rem;">Popup will close automatically</div>
     </div>
 
     <audio id="bg-music" loop preload="auto"><source src="background-music.mp3" type="audio/mpeg"></audio>
@@ -590,11 +589,29 @@
         let supabaseClient;
         let pendingUserId = null, pendingScore = 0, currentDisplayName = null, isLoggedIn = false;
 
-        // ====================== UTILS & MAP ======================
+        // ====================== UTILS ======================
+        function generateRandomString(length) {
+            let text = '';
+            const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            for (let i = 0; i < length; i++) text += possible.charAt(Math.floor(Math.random() * possible.length));
+            return text;
+        }
+        async function sha256(plain) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(plain);
+            const hash = await crypto.subtle.digest('SHA-256', data);
+            return hash;
+        }
+        function base64urlencode(str) {
+            return btoa(String.fromCharCode.apply(null, new Uint8Array(str)))
+                .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
         function submitScreenshot() {
             window.open('https://discord.gg/tXt3HW45Sq', '_blank');
         }
 
+        // ====================== MAP ======================
         function initMap() {
             mapInstance = L.map('map', { crs: L.CRS.Simple, minZoom: -5, maxZoom: 6, zoomSnap: 0.25 });
             const img = new Image();
@@ -623,6 +640,7 @@
             [guessMarker, correctMarker, lineLayer, circleLayer].forEach(l => { if (l) mapInstance.removeLayer(l); });
         }
 
+        // ====================== MUSIC & SFX ======================
         function toggleMusic() {
             isMusicMuted = !isMusicMuted;
             const btn = document.getElementById('mute-btn');
@@ -643,6 +661,7 @@
             if (audio) { audio.currentTime = 0; audio.play().catch(() => {}); }
         }
 
+        // ====================== GAME LOGIC ======================
         function startNewRound() {
             if (currentRound >= MAX_ROUNDS) { showEndScreen(); return; }
             currentRound++;
@@ -705,13 +724,6 @@
         }
         function nextRound() { hideResultAndNext(); }
 
-        // ====================== NEW CLEAN LOGIN SYSTEM ======================
-        function showLoggingInOverlay() {
-            const overlay = document.getElementById('logging-in-overlay');
-            overlay.style.display = 'flex';
-            setTimeout(() => { overlay.style.display = 'none'; }, 1400);
-        }
-
         function showEndScreen() {
             const endScreen = document.getElementById('end-screen');
             let gotNewHighScore = false;
@@ -736,46 +748,6 @@
             if (gotNewHighScore) playSFX('sfx6'); else playSFX('sfx5');
         }
 
-        async function loginWithProvider(provider) {
-            showLoggingInOverlay();
-            const { error } = await supabaseClient.auth.signInWithOAuth({
-                provider: provider,
-                options: {
-                    redirectTo: window.location.origin + window.location.pathname
-                }
-            });
-            if (error) {
-                console.error('Login error:', error);
-                alert('Login failed. Please try again.');
-            }
-        }
-
-        async function handleManualLogin() {
-            await loginWithProvider('discord');
-        }
-
-        function submitWithCustomName() {
-            const nameInput = document.getElementById('player-name-input').value.trim();
-            if (!nameInput) { alert("Please enter a name!"); return; }
-            if (!pendingUserId) return;
-            submitScore(pendingUserId, pendingScore, nameInput).then(success => {
-                if (success) {
-                    document.getElementById('name-prompt-section').style.display = 'none';
-                    document.getElementById('score-saved-section').style.display = 'block';
-                    loadHighscores();
-                    currentDisplayName = nameInput;
-                    localStorage.setItem('evrimaLastDisplayName', nameInput);
-                } else {
-                    alert('Failed to save score.');
-                }
-            });
-        }
-
-        function cancelNamePrompt() {
-            document.getElementById('name-prompt-section').style.display = 'none';
-            document.getElementById('save-score-section').style.display = 'block';
-        }
-
         function playAgain() {
             playSFX('sfx4');
             document.getElementById('end-screen').style.display = 'none';
@@ -793,115 +765,90 @@
             }
         }
 
-        async function submitScore(userId, score, displayName) {
-            const { error } = await supabaseClient.from(TABLE_NAME).insert({ user_id: userId, score: score, display_name: displayName });
-            return !error;
+        // ====================== NEW CLEAN POPUP LOGIN SYSTEM ======================
+        async function loginWithProvider(provider) {
+            const redirectTo = window.location.origin + window.location.pathname;
+            const codeVerifier = generateRandomString(64);
+            const codeChallenge = base64urlencode(await sha256(codeVerifier));
+
+            const urlObj = new URL(SUPABASE_URL);
+            const projectRef = urlObj.hostname.split('.')[0];
+            const codeVerifierKey = `sb-${projectRef}-auth-token-code-verifier`;
+            localStorage.setItem(codeVerifierKey, codeVerifier);
+
+            const authorizeUrl = new URL(`${SUPABASE_URL}/auth/v1/authorize`);
+            authorizeUrl.searchParams.set('provider', provider.toLowerCase());
+            authorizeUrl.searchParams.set('redirect_to', redirectTo);
+            authorizeUrl.searchParams.set('code_challenge', codeChallenge);
+            authorizeUrl.searchParams.set('code_challenge_method', 'S256');
+
+            const width = 620, height = 720;
+            const left = window.screenX + (window.outerWidth - width) / 2;
+            const top = window.screenY + (window.outerHeight - height) / 2;
+
+            window.open(authorizeUrl.toString(), `supabase-${provider}-popup`,
+                `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes`);
         }
 
-        // ====================== LEADERBOARD (unchanged) ======================
-        async function loadHighscores() {
-            const container = document.getElementById('highscores-scroll');
-            container.innerHTML = '🔄 Loading leaderboard...';
-            try {
-                const { data, error } = await supabaseClient.from(TABLE_NAME).select('*').order('score', { ascending: false }).limit(25);
-                if (error) throw error;
-                if (!data || data.length === 0) {
-                    container.innerHTML = `<div style="text-align:center; padding:30px 0; color:#ff0;">No high scores yet!<br>Play to be #1</div>`;
-                    return;
-                }
-                let html = '';
-                data.forEach((entry, i) => {
-                    const rank = i + 1;
-                    const displayName = entry.display_name || 'Anonymous';
-                    const scoreFormatted = entry.score ? entry.score.toLocaleString('en-US') : '0';
-                    const dateStr = entry.created_at ? new Date(entry.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : '';
-                    html += `<div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px dotted rgba(15,240,0,0.25);">
-                        <span style="color:#ff0; min-width:38px; font-size:0.9rem;">#${rank}</span>
-                        <span style="color:#0ff; flex:1; padding:0 12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${displayName}</span>
-                        <span style="color:#0f0; font-weight:bold; min-width:85px; text-align:right; padding-right:12px;">${scoreFormatted}</span>
-                        <span style="color:#0aa; font-size:0.75rem; white-space:nowrap;">${dateStr}</span>
-                    </div>`;
-                });
-                container.innerHTML = html;
-            } catch (err) {
-                container.innerHTML = `<div style="color:#f44; text-align:center;">Failed to load scores<br><small>${err.message}</small></div>`;
-            }
+        function showLoggingInOverlay() {
+            const overlay = document.getElementById('logging-in-overlay');
+            overlay.style.display = 'flex';
         }
 
-        function startLeaderboardScroll() {
-            const scrollContainer = document.getElementById('highscores-scroll');
-            let scrollSpeed = 0.22;
-            let scrollInterval;
-            const doScroll = () => {
-                scrollInterval = setInterval(() => {
-                    if (scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight - 8) {
-                        scrollContainer.scrollTop = 0;
-                    } else {
-                        scrollContainer.scrollTop += scrollSpeed;
+        window.addEventListener('message', (event) => {
+            if (event.origin !== window.location.origin) return;
+            if (event.data && event.data.type === 'SUPABASE_AUTH_CALLBACK') {
+                if (event.data.success && event.data.session) {
+                    pendingUserId = event.data.session.user.id;
+                    isLoggedIn = true;
+                    document.getElementById('logged-in-indicator').style.display = 'block';
+
+                    const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
+                    if (pendingScoreStr) {
+                        pendingScore = parseInt(pendingScoreStr);
+                        localStorage.removeItem('pendingEvrimaScore');
                     }
-                }, 40);
-            };
-            setTimeout(doScroll, 2500);
-            scrollContainer.addEventListener('mouseenter', () => clearInterval(scrollInterval));
-            scrollContainer.addEventListener('mouseleave', () => { clearInterval(scrollInterval); doScroll(); });
-        }
 
-        function showLeaderboardPopup() {
-            const modal = document.createElement('div');
-            modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(10,10,30,0.98); z-index:4000; display:flex; align-items:center; justify-content:center;';
-            modal.innerHTML = `
-                <div style="background:#111133; border:4px solid #0f0; padding:20px; max-width:90%; max-height:90%; overflow:auto; width:620px;">
-                    <div style="text-align:center; margin-bottom:15px; color:#ff0; font-size:1.1rem;">GLOBAL LEADERBOARD • TOP EVRIMA</div>
-                    <div id="popup-lb-content">Loading...</div>
-                    <button onclick="this.closest('.modal-wrapper').remove()" style="margin-top:20px; width:100%; padding:12px; background:#111133; color:#0f0; border:3px solid #0f0; font-family:'Press Start 2P';">CLOSE</button>
-                </div>
-            `;
-            modal.className = 'modal-wrapper';
-            document.body.appendChild(modal);
-            loadHighscoresForPopup();
-        }
-
-        async function loadHighscoresForPopup() {
-            const content = document.getElementById('popup-lb-content');
-            try {
-                const { data, error } = await supabaseClient.from(TABLE_NAME).select('*').order('score', { ascending: false }).limit(25);
-                if (error) throw error;
-                if (!data || data.length === 0) {
-                    content.innerHTML = `<div style="text-align:center; padding:40px 0; color:#ff0;">No scores yet!<br>Be the first!</div>`;
-                    return;
+                    showLoggingInOverlay();
+                    setTimeout(() => {
+                        document.getElementById('logging-in-overlay').style.display = 'none';
+                        if (document.getElementById('end-screen').style.display === 'block') {
+                            document.getElementById('save-score-section').style.display = 'none';
+                            document.getElementById('name-prompt-section').style.display = 'block';
+                            document.getElementById('player-name-input').focus();
+                        }
+                    }, 1300);
                 }
-                let html = '';
-                data.forEach((entry, i) => {
-                    const rank = i + 1;
-                    const name = entry.display_name || 'Anonymous';
-                    const score = entry.score ? entry.score.toLocaleString('en-US') : '0';
-                    const date = entry.created_at ? new Date(entry.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : '';
-                    html += `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px dotted rgba(15,240,0,0.3);">
-                        <span style="color:#ff0; min-width:38px;">#${rank}</span>
-                        <span style="color:#0ff; flex:1; padding:0 12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${name}</span>
-                        <span style="color:#0f0; font-weight:bold; min-width:80px; text-align:right;">${score}</span>
-                        <span style="color:#0aa; font-size:0.8rem;">${date}</span>
-                    </div>`;
-                });
-                content.innerHTML = html;
-            } catch (err) {
-                content.innerHTML = `<div style="color:#f44; text-align:center;">Failed to load<br><small>${err.message}</small></div>`;
             }
+        });
+
+        async function handleManualLogin() {
+            localStorage.setItem('pendingEvrimaScore', totalScore.toString());
+            await loginWithProvider('discord');
         }
 
-        // ====================== FULLSCREEN ======================
-        function openFullscreen() {
-            const preview = document.getElementById('fullscreen-preview');
-            const img = document.getElementById('fullscreen-image');
-            img.src = document.getElementById('panorama').src;
-            preview.style.display = 'flex';
+        // Popup callback handler (runs only inside the popup)
+        const isPopupCallback = window.opener !== null && (window.location.hash.includes('access_token') || window.location.search.includes('code=') || window.location.search.includes('error='));
+        if (isPopupCallback) {
+            const { createClient } = supabase;
+            supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            setTimeout(async () => {
+                try {
+                    const { data: { session } } = await supabaseClient.auth.getSession();
+                    if (window.opener && session) {
+                        window.opener.postMessage({ type: 'SUPABASE_AUTH_CALLBACK', session: session, success: true }, '*');
+                    } else if (window.opener) {
+                        window.opener.postMessage({ type: 'SUPABASE_AUTH_CALLBACK', success: false }, '*');
+                    }
+                } catch (err) {
+                    if (window.opener) window.opener.postMessage({ type: 'SUPABASE_AUTH_CALLBACK', success: false }, '*');
+                }
+                setTimeout(() => window.close(), 300);
+            }, 200);
+            return; // STOP — do not load the game in the popup
         }
 
-        function closeFullscreen() {
-            document.getElementById('fullscreen-preview').style.display = 'none';
-        }
-
-        // ====================== STARTUP – NEW AUTH SYSTEM ======================
+        // ====================== STARTUP ======================
         window.onload = async function () {
             initMap();
             remainingLocations = [...LOCATIONS];
@@ -913,17 +860,7 @@
             const { createClient } = supabase;
             supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // Official Supabase auth listener – this is the new system
-            supabaseClient.auth.onAuthStateChange((event, session) => {
-                if (event === 'SIGNED_IN' && session) {
-                    pendingUserId = session.user.id;
-                    isLoggedIn = true;
-                    document.getElementById('logged-in-indicator').style.display = 'block';
-                    console.log('✅ Logged in via Supabase listener');
-                }
-            });
-
-            // Check if already logged in on load
+            // Persistent login
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
                 pendingUserId = session.user.id;
@@ -951,7 +888,7 @@
                 if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
             });
 
-            console.log('🚀 The Isle: Evrima GeoGuessr — completely rebuilt login system');
+            console.log('🚀 Evrima GeoGuessr — classic popup login rebuilt');
         };
     </script>
 </body>
