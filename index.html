@@ -368,6 +368,7 @@
         <div style="font-size:1.6rem; margin-bottom:20px;">LOGGING IN...</div>
         <div style="color:#0aa; font-size:0.9rem;">Popup will close automatically</div>
     </div>
+
     <audio id="bg-music" loop preload="auto"><source src="background-music.mp3" type="audio/mpeg"></audio>
     <audio id="sfx1" preload="auto"><source src="sfx1.wav" type="audio/wav"></audio>
     <audio id="sfx2" preload="auto"><source src="sfx2.mp3" type="audio/mpeg"></audio>
@@ -762,7 +763,7 @@
             }
         }
 
-        // Supabase auth state listener (new system)
+        // Supabase auth state listener
         function setupAuthListener() {
             supabaseClient.auth.onAuthStateChange((event, session) => {
                 if (event === 'SIGNED_IN' && session) {
@@ -775,7 +776,6 @@
                         localStorage.removeItem('pendingEvrimaScore');
                     }
 
-                    // Show name prompt if we are at end screen
                     if (document.getElementById('end-screen').style.display === 'block') {
                         document.getElementById('save-score-section').style.display = 'none';
                         document.getElementById('name-prompt-section').style.display = 'block';
@@ -785,7 +785,7 @@
             });
         }
 
-        // Popup callback handler (runs ONLY inside the popup window)
+        // Popup callback handler (runs ONLY inside the popup)
         if (window.opener && (window.location.hash || window.location.search)) {
             const { createClient } = supabase;
             const tempClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -817,10 +817,8 @@
             const { createClient } = supabase;
             supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // New auth listener
             setupAuthListener();
 
-            // Check persistent login
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
                 pendingUserId = session.user.id;
