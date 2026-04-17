@@ -117,8 +117,8 @@
         #map { 
             width: 100%; 
             height: 100%; 
-            touch-action: pan-x pan-y pinch-zoom;   /* ← this stops spam page-zoom */
-}
+            touch-action: pan-x pan-y pinch-zoom;
+        }
 
         /* CONTROLS */
         .controls {
@@ -151,7 +151,6 @@
         }
         #mute-btn:hover { background: #0f0; color: #111133; }
 
-        /* v3.1: SINGLE logged-in map icon (bottom-left of map) */
         #logged-in-map-icon {
             position: absolute;
             bottom: 85px;
@@ -167,7 +166,7 @@
             cursor: pointer;
             z-index: 1050;
             transition: all 0.2s ease;
-            display: none; /* controlled by JS */
+            display: none;
         }
         #logged-in-map-icon:hover {
             background: #0f0;
@@ -185,7 +184,8 @@
             border: 3px solid #0f0;
             cursor: pointer;
         }
-        button:hover { background: #0f0; color: #111133; }
+        button:hover:not(:disabled) { background: #0f0; color: #111133; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
 
         /* RESULT & END-SCREEN */
         .result, #end-screen {
@@ -341,6 +341,24 @@
             display: none;
         }
 
+        /* TOAST */
+        #toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #111133;
+            color: #0f0;
+            border: 3px solid #0f0;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 0 30px #0f0;
+            z-index: 9999;
+            display: none;
+            font-size: 1rem;
+            white-space: nowrap;
+        }
+
         /* RESPONSIVE */
         @media (max-width: 900px) {
             .game-container { flex-direction: column; }
@@ -359,15 +377,12 @@
             .controls { padding: 9px 20px; bottom: 78px; gap: 12px; left: 50%; transform: translateX(-50%); max-width: 92%; }
             button { padding: 10px 22px; font-size: 0.96rem; }
             #mute-btn { padding: 9px 14px; font-size: 0.9rem; bottom: 18px; left: 18px; }
-            
-            /* v3.1 MOBILE FIX: emoji moved UP (higher bottom value) so no truncation or panning */
             #logged-in-map-icon { 
                 bottom: 114px; 
                 left: 18px; 
                 font-size: 1.75rem; 
                 padding: 7px 11px; 
             }
-            
             .result, #end-screen { 
                 top: 18% !important; 
                 transform: translate(-50%, -50%) !important; 
@@ -427,10 +442,8 @@
         <div class="map-panel">
             <div id="map"></div>
             
-            <!-- Trophy button -->
             <button id="trophy-btn" onclick="showLeaderboardModal()">🏆</button>
             
-            <!-- v3.1: ONLY logged-in emoji icon (bottom-left of map) -->
             <button id="logged-in-map-icon" onclick="logout()">👤</button>
 
             <div id="mobile-round-info">
@@ -465,7 +478,7 @@
                 <div id="name-prompt-section" style="display:none;">
                     <p style="margin:25px 0 10px; font-size:1.1rem;">CHOOSE YOUR LEADERBOARD NAME</p>
                     <input id="player-name-input" type="text" maxlength="16" placeholder="ENTER NAME (MAX 16)" autocomplete="off">
-                    <button onclick="submitWithCustomName()" style="margin-top:15px; width:100%;">SUBMIT SCORE</button>
+                    <button id="submit-name-btn" onclick="submitWithCustomName()" style="margin-top:15px; width:100%;">SUBMIT SCORE</button>
                     <button onclick="cancelNamePrompt()" style="margin-top:8px; background:#330000; border-color:#f00; width:100%;">CANCEL — DON'T SAVE</button>
                 </div>
                 <div id="score-saved-section" style="display:none;">
@@ -486,6 +499,8 @@
         <img id="fullscreen-image" src="" alt="Fullscreen Evrima View">
     </div>
 
+    <div id="toast"></div>
+
     <audio id="bg-music" loop preload="auto"><source src="background-music.mp3" type="audio/mpeg"></audio>
     <audio id="sfx1" preload="auto"><source src="sfx1.wav" type="audio/wav"></audio>
     <audio id="sfx2" preload="auto"><source src="sfx2.mp3" type="audio/mpeg"></audio>
@@ -497,17 +512,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // ====================== v3.1 FINAL BUILD ======================
-        // Changelog:
-        // - Removed header auth-indicator completely (no more duplicate login info)
-        // - Kept ONLY the bottom-left 👤 emoji icon on the map (shows/hides based on login)
-        // - Mobile-specific offset: emoji moved UP (bottom: 114px) to fix truncation + prevent any screen panning
-        // - Cleaned all leftover mobile logout menu code
-        // - Perfect alignment on desktop + mobile
-        // - All previous gameplay, scoring, leaderboard, music, etc. untouched
-        // - Ready for production — this is the final 3.1 version
-
-        // ====================== CONFIG ======================
+        // ====================== v3.2 FULL UNTRUNCATED IRONCLAD BUILD ======================
         let gameInitialized = false;
         const MAP_IMAGE = 'firstdraft.png';
         const MAX_ROUNDS = 10;
@@ -640,8 +645,17 @@
         let pendingScore = 0;
         let isLoggedIn = false;
         let currentUser = null;
+        let isSubmitting = false;
 
-        // ==================== GAME STATE PERSISTENCE ====================
+        function showToast(msg, color = '#0f0') {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.borderColor = color;
+            t.style.color = color;
+            t.style.display = 'block';
+            setTimeout(() => { t.style.display = 'none'; }, 2800);
+        }
+
         function saveCurrentGameState() {
             const state = {
                 totalScore,
@@ -656,13 +670,13 @@
                 pendingScore
             };
             localStorage.setItem('evrimaGameState', JSON.stringify(state));
+            sessionStorage.setItem('evrimaGameStateBackup', JSON.stringify(state));
         }
 
         function restoreGameState() {
-            const saved = localStorage.getItem('evrimaGameState');
+            const saved = localStorage.getItem('evrimaGameState') || sessionStorage.getItem('evrimaGameStateBackup');
             if (!saved) return false;
             const state = JSON.parse(saved);
-
             totalScore = state.totalScore || 0;
             currentRound = state.currentRound || 0;
             hasSubmitted = state.hasSubmitted || false;
@@ -670,40 +684,29 @@
             guessLng = state.guessLng || null;
             pendingUserId = state.pendingUserId || null;
             pendingScore = state.pendingScore || 0;
-
             if (state.remainingLocationIds && state.remainingLocationIds.length) {
                 remainingLocations = LOCATIONS.filter(loc => state.remainingLocationIds.includes(loc.id));
             }
             if (state.currentLocationId) {
                 currentLocation = LOCATIONS.find(loc => loc.id === state.currentLocationId) || null;
             }
-
             document.getElementById('total-score').textContent = totalScore;
             document.getElementById('mobile-total-score').textContent = totalScore;
             document.getElementById('round-num').textContent = currentRound;
             document.getElementById('mobile-round-num').textContent = currentRound;
-
             localStorage.removeItem('evrimaGameState');
+            sessionStorage.removeItem('evrimaGameStateBackup');
             return true;
         }
 
-        // ==================== AUTH UI (v3.1 - only map icon) ====================
         function updateAuthUI(user) {
             currentUser = user;
             const mapIcon = document.getElementById('logged-in-map-icon');
-
             if (!user) {
                 mapIcon.style.display = 'none';
                 return;
             }
-
-            mapIcon.style.display = 'block'; // show only the emoji icon
-        }
-
-        function resetEndScreenUI() {
-            document.getElementById('save-score-section').style.display = 'block';
-            document.getElementById('name-prompt-section').style.display = 'none';
-            document.getElementById('score-saved-section').style.display = 'none';
+            mapIcon.style.display = 'block';
         }
 
         function logout() {
@@ -796,8 +799,9 @@
         }
 
         function submitGuess() {
-            if (guessLat === null || guessLng === null || !currentLocation || hasSubmitted) return;
-            hasSubmitted = true;
+            if (isSubmitting || guessLat === null || guessLng === null || !currentLocation || hasSubmitted) return;
+            isSubmitting = true;
+            document.getElementById('submit-btn').disabled = true;
             const actualLat = currentLocation.coord[0];
             const actualLng = currentLocation.coord[1];
             const distancePx = Math.hypot(guessLng - actualLng, guessLat - actualLat);
@@ -826,6 +830,8 @@
             document.getElementById('next-btn').style.display = 'inline-block';
             const group = L.featureGroup([guessMarker || guessPos, correctMarker]);
             mapInstance.fitBounds(group.getBounds().pad(0.35), { animate: true, duration: 1.2, maxZoom: 3 });
+            isSubmitting = false;
+            document.getElementById('submit-btn').disabled = false;
         }
 
         function hideResultAndNext() {
@@ -834,27 +840,80 @@
         }
         function nextRound() { hideResultAndNext(); }
 
+        async function submitScore(userId, score, displayName) {
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    const { error } = await supabaseClient.from(TABLE_NAME).insert({ user_id: userId, score: score, display_name: displayName });
+                    if (!error) return true;
+                    if (attempt === 3) throw error;
+                    await new Promise(r => setTimeout(r, 800));
+                } catch (e) {
+                    if (attempt === 3) {
+                        showToast('❌ Failed to save score (try again later)', '#f44');
+                        console.error('SubmitScore error:', e);
+                        return false;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function submitWithCustomName() {
+            if (isSubmitting) return;
+            const nameInput = document.getElementById('player-name-input').value.trim();
+            if (!nameInput) { alert("Please enter a name!"); return; }
+            if (!pendingUserId || pendingScore === 0) return;
+            isSubmitting = true;
+            const btn = document.getElementById('submit-name-btn');
+            btn.textContent = 'SAVING...';
+            btn.disabled = true;
+            submitScore(pendingUserId, pendingScore, nameInput).then(success => {
+                isSubmitting = false;
+                btn.textContent = 'SUBMIT SCORE';
+                btn.disabled = false;
+                if (success) {
+                    document.getElementById('name-prompt-section').style.display = 'none';
+                    document.getElementById('score-saved-section').style.display = 'block';
+                    loadHighscores();
+                    showToast('✅ SCORE SAVED TO LEADERBOARD!', '#0f0');
+                    setTimeout(() => {
+                        document.getElementById('end-screen').style.display = 'none';
+                        playAgain();
+                    }, 1200);
+                } else {
+                    alert('Failed to save score.');
+                }
+                pendingUserId = null;
+                pendingScore = 0;
+            });
+        }
+
+        function cancelNamePrompt() {
+            document.getElementById('name-prompt-section').style.display = 'none';
+            document.getElementById('save-score-section').style.display = 'block';
+            pendingUserId = null;
+            pendingScore = 0;
+        }
+
         function showEndScreen() {
             const endScreen = document.getElementById('end-screen');
-            resetEndScreenUI();
-
             let gotNewHighScore = false;
             if (totalScore > highScore) {
                 gotNewHighScore = true;
                 highScore = totalScore;
                 localStorage.setItem('evrimaHighScore', highScore);
             }
-
             document.getElementById('final-score').textContent = totalScore;
             document.getElementById('high-score-display').textContent = highScore;
-
+            document.getElementById('save-score-section').style.display = 'block';
+            document.getElementById('name-prompt-section').style.display = 'none';
+            document.getElementById('score-saved-section').style.display = 'none';
             if (isLoggedIn) {
                 pendingScore = totalScore;
                 document.getElementById('save-score-section').style.display = 'none';
                 document.getElementById('name-prompt-section').style.display = 'block';
                 document.getElementById('player-name-input').focus();
             } 
-
             endScreen.style.display = 'block';
             if (gotNewHighScore) playSFX('sfx6'); else playSFX('sfx5');
         }
@@ -862,7 +921,6 @@
         function playAgain() {
             playSFX('sfx4');
             document.getElementById('end-screen').style.display = 'none';
-            
             totalScore = 0;
             currentRound = 0;
             remainingLocations = [...LOCATIONS];
@@ -871,10 +929,8 @@
             guessLng = null;
             hasSubmitted = false;
             pendingScore = 0;
-            
             document.getElementById('total-score').textContent = '0';
             document.getElementById('mobile-total-score').textContent = '0';
-            
             startNewRound();
         }
 
@@ -915,39 +971,6 @@
             }
         }
 
-        async function submitScore(userId, score, displayName) {
-            const { error } = await supabaseClient.from(TABLE_NAME).insert({ user_id: userId, score: score, display_name: displayName });
-            return !error;
-        }
-
-        function submitWithCustomName() {
-            const nameInput = document.getElementById('player-name-input').value.trim();
-            if (!nameInput) { alert("Please enter a name!"); return; }
-            if (!pendingUserId || pendingScore === 0) return;
-            submitScore(pendingUserId, pendingScore, nameInput).then(success => {
-                if (success) {
-                    document.getElementById('name-prompt-section').style.display = 'none';
-                    document.getElementById('score-saved-section').style.display = 'block';
-                    loadHighscores();
-                    setTimeout(() => {
-                        document.getElementById('end-screen').style.display = 'none';
-                        playAgain();
-                    }, 900);
-                } else {
-                    alert('Failed to save score.');
-                }
-                pendingUserId = null;
-                pendingScore = 0;
-            });
-        }
-
-        function cancelNamePrompt() {
-            document.getElementById('name-prompt-section').style.display = 'none';
-            document.getElementById('save-score-section').style.display = 'block';
-            pendingUserId = null;
-            pendingScore = 0;
-        }
-
         function openFullscreen() {
             const preview = document.getElementById('fullscreen-preview');
             const img = document.getElementById('fullscreen-image');
@@ -972,7 +995,6 @@
         function loginWithProvider(provider) {
             saveCurrentGameState();
             localStorage.setItem('pendingEvrimaScore', totalScore.toString());
-
             supabaseClient.auth.signInWithOAuth({
                 provider: provider,
                 options: { redirectTo: window.location.origin + window.location.pathname }
@@ -985,59 +1007,46 @@
         }
 
         function startGame() {
-            console.log('🚀 GAME STARTING - v3.1 FINAL');
-
+            console.log('🚀 GAME STARTING - v3.2 FULL IRONCLAD');
             initMap();
             remainingLocations = [...LOCATIONS];
-
             bgMusic = document.getElementById('bg-music');
             bgMusic.volume = 0.25;
             bgMusic.play().catch(() => {});
             document.getElementById('mute-btn').addEventListener('click', toggleMusic);
-
             const { createClient } = supabase;
             supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
             loadHighscores();
-
             mapInstance.on('click', function autoStart() {
                 if (bgMusic.paused && !isMusicMuted) bgMusic.play().catch(() => {});
                 mapInstance.off('click', autoStart);
             });
-
             const panoramaContainer = document.getElementById('panorama-container');
             panoramaContainer.addEventListener('click', openFullscreen);
             panoramaContainer.addEventListener('touchstart', (e) => {
                 if (e.touches.length === 1) openFullscreen();
             }, { passive: true });
-
             setTimeout(startNewRound, 600);
-
             window.addEventListener('resize', () => {
                 if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
             });
-
-            console.log('🚀 v3.1 GAME LOADED SUCCESSFULLY');
+            console.log('🚀 v3.2 GAME LOADED SUCCESSFULLY');
         }
 
         async function checkAuth() {
             console.log('🔑 Checking session');
             const { data: { session } } = await supabaseClient.auth.getSession();
-            
             if (session?.user) {
                 isLoggedIn = true;
                 pendingUserId = session.user.id;
                 updateAuthUI(session.user);
-                
                 const restored = restoreGameState();
-                
                 if (restored) {
                     if (currentRound >= MAX_ROUNDS || remainingLocations.length === 0) {
                         showEndScreen();
                     }
                     return;
                 }
-
                 const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
                 if (pendingScoreStr) {
                     pendingScore = parseInt(pendingScoreStr);
@@ -1050,7 +1059,6 @@
         async function initializeGame() {
             await startGame();
             await checkAuth();
-            
             supabaseClient.auth.onAuthStateChange((event, session) => {
                 if (event === 'SIGNED_IN' && session) {
                     isLoggedIn = true;
@@ -1064,7 +1072,6 @@
             });
         }
 
-        // ==================== LAUNCH v3.1 ====================
         initializeGame();
     </script>
 
