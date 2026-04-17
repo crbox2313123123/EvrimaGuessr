@@ -534,26 +534,6 @@
         let pendingScore = 0;
         let isLoggedIn = false;
 
-        function generateRandomString(length) {
-            let text = '';
-            const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-            for (let i = 0; i < length; i++) {
-                text += possible.charAt(Math.floor(Math.random() * possible.length));
-            }
-            return text;
-        }
-        async function sha256(plain) {
-            const encoder = new TextEncoder();
-            const data = encoder.encode(plain);
-            const hash = await crypto.subtle.digest('SHA-256', data);
-            return hash;
-        }
-        function base64urlencode(str) {
-            return btoa(String.fromCharCode.apply(null, new Uint8Array(str)))
-                .replace(/\+/g, '-')
-                .replace(/\//g, '_')
-                .replace(/=+$/, '');
-        }
 
         function initMap() {
             mapInstance = L.map('map', { crs: L.CRS.Simple, minZoom: -5, maxZoom: 6, zoomSnap: 0.25 });
@@ -785,133 +765,98 @@
             document.getElementById('fullscreen-preview').style.display = 'none';
         }
 
-        async function loginWithProvider(provider) {
-            console.log('%c🔑 [DEBUG] loginWithProvider called with ' + provider, 'color:#ff0; font-weight:bold');
-            localStorage.setItem('pendingEvrimaScore', totalScore.toString());
 
-            const redirectTo = window.location.origin + window.location.pathname;
-            const codeVerifier = generateRandomString(64);
-            const codeChallenge = base64urlencode(await sha256(codeVerifier));
 
-            // FIXED: correct projectRef + exact Supabase key name (this was the missing handshake piece)
-            const projectRef = new URL(SUPABASE_URL).hostname.split('.')[0];
-            const codeVerifierKey = `sb-${projectRef}-auth-token-code-verifier`;
-            localStorage.setItem(codeVerifierKey, codeVerifier);
 
-            const authorizeUrl = new URL(`${SUPABASE_URL}/auth/v1/authorize`);
-            authorizeUrl.searchParams.set('provider', provider.toLowerCase());
-            authorizeUrl.searchParams.set('redirect_to', redirectTo);
-            authorizeUrl.searchParams.set('code_challenge', codeChallenge);
-            authorizeUrl.searchParams.set('code_challenge_method', 'S256');
 
-            const width = 600;
-            const height = 700;
-            const left = window.screenX + (window.outerWidth - width) / 2;
-            const top = window.screenY + (window.outerHeight - height) / 2;
 
-            const popup = window.open(authorizeUrl.toString(), `supabase-${provider}-popup`, 
-                `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes`);
 
-            if (!popup) {
-                console.log('%c❌ [DEBUG] Popup blocked by browser', 'color:#f00');
-                alert('Popup blocked! Please allow popups for this site and try again.');
-                localStorage.removeItem('pendingEvrimaScore');
-                return;
-            }
-            popup.focus();
-            console.log('%c✅ [DEBUG] Popup opened - waiting for callback handshake', 'color:#0f0');
+async function loginWithProvider(provider) {
+    localStorage.setItem('pendingEvrimaScore', totalScore.toString());
+
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: provider,
+        options: {
+            redirectTo: window.location.origin + window.location.pathname
         }
+    });
 
-        // Message listener (handshake from popup)
-        window.addEventListener('message', async (event) => {
-            console.log('%c📨 [DEBUG] Message received from popup', 'color:#0ff', event.data);
-            if (event.data && event.data.type === 'SUPABASE_AUTH_CALLBACK') {
-                const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
-                if (event.data.success && event.data.session && pendingScoreStr) {
-                    console.log('%c✅ [DEBUG] HANDSHAKE SUCCESS - setting pending data', 'color:#0f0');
-                    pendingUserId = event.data.session.user.id;
-                    pendingScore = parseInt(pendingScoreStr);
-                    localStorage.removeItem('pendingEvrimaScore');
-                    document.getElementById('save-score-section').style.display = 'none';
-                    document.getElementById('name-prompt-section').style.display = 'block';
-                    document.getElementById('player-name-input').focus();
-                } else {
-                    console.log('%c❌ [DEBUG] HANDSHAKE FAILED', 'color:#f00');
-                    localStorage.removeItem('pendingEvrimaScore');
-                    alert('Login failed or was cancelled. Please try again.');
-                }
-            }
-        });
+    if (error) {
+        console.error('Login error:', error.message);
+        alert('Login failed: ' + error.message);
+        localStorage.removeItem('pendingEvrimaScore');
+    }
+}
 
-        window.onload = async function () {
-            console.log('%c🔍 [DEBUG] onload - checking if this is popup callback', 'color:#ff0');
 
-            // EXACT 1.6 popup guard (runs ONLY inside the popup window)
-            const isPopupCallback = window.opener !== null && (window.location.hash.includes('access_token') || window.location.search.includes('code=') || window.location.search.includes('error='));
-            if (isPopupCallback) {
-                console.log('%c✅ [DEBUG] This is popup callback - handling auth handshake', 'color:#0f0');
-                const { createClient } = supabase;
-                const tempClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-                try {
-                    const { data: { session } } = await tempClient.auth.getSession();
-                    console.log('%c🔄 [DEBUG] Session in popup:', 'color:#0ff', session ? 'VALID SESSION RECEIVED' : 'NULL');
 
-                    if (window.opener && session) {
-                        window.opener.postMessage({ type: 'SUPABASE_AUTH_CALLBACK', session: session, success: true }, '*');
-                    } else if (window.opener) {
-                        window.opener.postMessage({ type: 'SUPABASE_AUTH_CALLBACK', success: false }, '*');
-                    }
-                } catch (err) {
-                    console.log('%c❌ [DEBUG] Error in popup callback', 'color:#f00', err);
-                    if (window.opener) window.opener.postMessage({ type: 'SUPABASE_AUTH_CALLBACK', success: false }, '*');
-                }
 
-                // Stay open a little longer so Supabase can finish token exchange (your suggestion)
-                setTimeout(() => { window.close(); }, 1400);
-                return;
-            }
 
-            // Normal game load
-            console.log('%c🚀 [DEBUG] Normal game load - starting 1.6 logic', 'color:#0f0');
-            initMap();
-            remainingLocations = [...LOCATIONS];
-            bgMusic = document.getElementById('bg-music');
-            bgMusic.volume = 0.25;
-            bgMusic.play().catch(() => {});
-            document.getElementById('mute-btn').addEventListener('click', toggleMusic);
 
-            const { createClient } = supabase;
-            supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // Persistent login check (only on main page)
-            console.log('%c🔑 [DEBUG] Checking persistent login', 'color:#ff0');
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (session) {
-                console.log('%c✅ [DEBUG] User is already logged in', 'color:#0f0');
-                isLoggedIn = true;
-                pendingUserId = session.user.id;
-            }
+        // MRUN GAME)
 
-            loadHighscores();
 
-            mapInstance.on('click', function autoStart() {
-                if (bgMusic.paused && !isMusicMuted) bgMusic.play().catch(() => {});
-                mapInstance.off('click', autoStart);
-            });
 
-            const panoramaContainer = document.getElementById('panorama-container');
-            panoramaContainer.addEventListener('click', openFullscreen);
-            panoramaContainer.addEventListener('touchstart', (e) => { if (e.touches.length === 1) openFullscreen(); }, { passive: true });
 
-            setTimeout(startNewRound, 600);
+(async () => {
+    console.log('%c🚀 [DEBUG] Normal game load - starting 1.6 logic', 'color:#0f0');
 
-            window.addEventListener('resize', () => {
-                if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
-            });
+    initMap();
+    remainingLocations = [...LOCATIONS];
 
-            console.log('🚀 GAME LOADED — EXACT 1.6 AUTH + FIXED HANDSHAKE + modern mobile UI');
-        };
+    bgMusic = document.getElementById('bg-music');
+    bgMusic.volume = 0.25;
+    bgMusic.play().catch(() => {});
+    document.getElementById('mute-btn').addEventListener('click', toggleMusic);
+
+    const { createClient } = supabase;
+    supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    console.log('%c🔑 [DEBUG] Checking session', 'color:#ff0');
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+
+    if (session) {
+        console.log('%c✅ User logged in', 'color:#0f0');
+
+        isLoggedIn = true;
+        pendingUserId = session.user.id;
+
+        const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
+
+        if (pendingScoreStr) {
+            pendingScore = parseInt(pendingScoreStr);
+            localStorage.removeItem('pendingEvrimaScore');
+
+            document.getElementById('save-score-section').style.display = 'none';
+            document.getElementById('name-prompt-section').style.display = 'block';
+            document.getElementById('player-name-input').focus();
+        }
+    }
+
+    loadHighscores();
+
+    mapInstance.on('click', function autoStart() {
+        if (bgMusic.paused && !isMusicMuted) bgMusic.play().catch(() => {});
+        mapInstance.off('click', autoStart);
+    });
+
+    const panoramaContainer = document.getElementById('panorama-container');
+    panoramaContainer.addEventListener('click', openFullscreen);
+    panoramaContainer.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) openFullscreen();
+    }, { passive: true });
+
+    setTimeout(startNewRound, 600);
+
+    window.addEventListener('resize', () => {
+        if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
+    });
+
+    console.log('🚀 GAME LOADED — FIXED AUTH WRAPPER');
+})();
     </script>
 </body>
 </html>
