@@ -16,17 +16,33 @@
 <body>
     <header>
         <img id="mobile-header-banner" src="mobilebanner.png" alt="EVRIHATCH">
-        <p id="player-name" class="text-xs mt-1 text-[#0f0]">CONNECTING...</p>
+        <p id="player-name" class="text-xs mt-1 text-[#0f0]">HUB</p>
     </header>
 
-    <div id="login-screen" class="flex-1 flex items-center justify-center flex-col gap-8">
-        <h2 class="text-3xl text-[#0f0] tracking-widest">EVRIHATCH</h2>
-        <button onclick="loginWithProvider('google')" class="w-80 py-5 border-4 border-[#4285F4] bg-[#4285F4] text-white text-lg">🔵 LOGIN WITH GOOGLE</button>
-        <button onclick="loginWithProvider('discord')" class="w-80 py-5 border-4 border-[#5865F2] bg-[#5865F2] text-white text-lg">🐙 LOGIN WITH DISCORD</button>
-        <p id="login-error" class="text-red-500 text-sm mt-4 hidden"></p>
-    </div>
+    <div class="flex-1 flex overflow-hidden flex-col md:flex-row">
+        <!-- BANK -->
+        <div class="w-full md:w-64 bg-[#05050f] border-r-4 border-[#0f0] p-4 overflow-y-auto flex-shrink-0">
+            <div class="text-[#ff0] text-center mb-4 text-sm tracking-widest">YOUR DINO BANK</div>
+            <div id="bank-grid" class="grid grid-cols-3 md:grid-cols-2 gap-3"></div>
+        </div>
 
-    <div id="hub-screen" class="flex-1 flex overflow-hidden flex-col md:flex-row hidden"> ... (same hub as before) ... </div>
+        <!-- CENTER -->
+        <div class="flex-1 flex items-center justify-center bg-black relative p-4">
+            <img id="main-dino" src="" alt="Selected Dino" class="max-h-[85%] max-w-[85%] object-contain image-rendering-pixelated shadow-[0_0_60px_#0f0]">
+        </div>
+
+        <!-- INFO -->
+        <div class="w-full md:w-80 bg-[#05050f] border-l-4 border-[#0f0] p-5 overflow-y-auto">
+            <div id="dino-name-display" class="text-[#ff0] text-center text-lg mb-6"></div>
+            <div id="info-content" class="space-y-4 text-xs"></div>
+
+            <div class="mt-8 space-y-3">
+                <button onclick="generateNewEgg()" class="w-full py-4 border-4 border-[#0f0] hover:bg-[#0f0] hover:text-[#111133] text-[#0f0]">GENERATE NEW EGG / RESET</button>
+                <button onclick="serverTick()" class="w-full py-4 border-4 border-[#ff0] hover:bg-[#ff0] hover:text-[#111133] text-[#ff0]">SERVER TICK (GROWTH)</button>
+                <button onclick="logout()" class="w-full py-4 border-4 border-[#f44] bg-[#330000] hover:bg-[#f44] hover:text-[#111133]">LOGOUT</button>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
@@ -34,31 +50,34 @@
         const SUPABASE_ANON_KEY = 'sb_publishable_lsNrJO_6cRlkTMPz7PkLzw_yQCwj0ig';
 
         let supabaseClient;
+        let currentUser = null;
+        let allDinos = [];
+        let selectedDino = null;
 
         async function init() {
             const { createClient } = supabase;
             supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
             const { data: { session } } = await supabaseClient.auth.getSession();
 
-            if (session?.user) {
-                document.getElementById('login-screen').classList.add('hidden');
-                document.getElementById('hub-screen').classList.remove('hidden');
-            } else {
-                document.getElementById('login-screen').classList.remove('hidden');
+            if (!session?.user) {
+                window.location.href = 'login.html?returnTo=evrihatch.html';
+                return;
             }
+
+            currentUser = session.user;
+            document.getElementById('player-name').innerHTML = `HUB — <span class="text-[#ff0]">RAISING AS SURVIVOR</span>`;
+            await loadAllDinos();
         }
 
-        function loginWithProvider(provider) {
-            document.getElementById('login-error').classList.add('hidden');
-            supabaseClient.auth.signInWithOAuth({
-                provider: provider,
-                options: { redirectTo: window.location.origin + window.location.pathname }
-            }).catch(err => {
-                console.error(err);
-                const errEl = document.getElementById('login-error');
-                errEl.textContent = "Login failed: " + err.message;
-                errEl.classList.remove('hidden');
-            });
+        // === REST OF YOUR HUB CODE (bank, render, generateNewEgg, serverTick, etc.) ===
+        async function loadAllDinos() { /* same as before */ }
+        function renderBank() { /* same as before */ }
+        function selectDino(dino) { /* same as before */ }
+        async function generateNewEgg() { /* same as before */ }
+        async function serverTick() { /* same as before */ }
+        function logout() {
+            supabaseClient.auth.signOut().then(() => window.location.href = 'login.html');
         }
 
         window.onload = init;
