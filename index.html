@@ -172,6 +172,7 @@
             box-shadow: 0 0 40px #0f0;
             display: none;
             max-width: 94%;
+            pointer-events: auto;
         }
         .footer {
             text-align: center;
@@ -267,7 +268,6 @@
             z-index: 5100;
             box-shadow: 0 0 20px #0f0;
         }
-        /* MOBILE ROUND/SCORE INFO BAR (moved to top of map area) */
         #mobile-round-info {
             position: absolute;
             top: 12px;
@@ -286,13 +286,12 @@
         }
         @media (max-width: 900px) {
             .game-container { flex-direction: column; }
-            header h1 { display: none; }
             #mobile-header-banner { width: 100%; height: 68px; object-fit: contain; margin: 4px 0 6px 0; }
             header { padding: 10px 8px 6px; flex-shrink: 0; }
-            header p { display: none; } /* hide default header text */
+            header p { display: none; }
             .view-panel { width: 100% !important; border-right: none; border-bottom: 4px solid #0f0; max-height: 53vh; overflow-y: auto; padding: 10px 10px 6px; }
             .map-panel { flex: 1; min-height: 47vh; position: relative; }
-            #banner-top { display: none; } /* no desktop banner on mobile */
+            #banner-top { display: none; }
             .panorama-container { max-height: 205px; border-width: 5px; margin-top: 0; margin-bottom: 8px; }
             #banner-bottom { display: none; }
             #highscore-header { font-size: 0.72rem; height: 32px; }
@@ -303,9 +302,8 @@
             button { padding: 10px 22px; font-size: 0.96rem; }
             #mute-btn { padding: 9px 14px; font-size: 0.9rem; bottom: 15px; left: 15px; }
             .result, #end-screen { top: 15px; padding: 20px 25px; max-width: 94%; max-height: 88vh; overflow-y: auto; font-size: 0.93rem; }
-            .result button, #end-screen button { padding: 12px 24px; font-size: 1rem; }
             #mobile-round-info { display: block; font-size: 0.78rem; padding: 4px 12px; top: 8px; }
-            .info { display: none; } /* hide desktop instructions on mobile */
+            .info { display: none; }
         }
         @media (max-width: 480px) {
             .panorama-container { max-height: 188px; }
@@ -686,6 +684,7 @@
             document.getElementById('high-score-display').textContent = highScore;
 
             if (isLoggedIn) {
+                pendingScore = totalScore;
                 document.getElementById('save-score-section').style.display = 'none';
                 document.getElementById('name-prompt-section').style.display = 'block';
                 document.getElementById('score-saved-section').style.display = 'none';
@@ -858,7 +857,7 @@
             const { createClient } = supabase;
             supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // Persistent login check
+            // Persistent login (added to 1.6 base)
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
                 isLoggedIn = true;
@@ -882,7 +881,7 @@
                 if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
             });
 
-            console.log('🚀 GAME LOADED — 1.6 login core + permanent login + full mobile UI restored');
+            console.log('🚀 GAME LOADED — 1.6 auth restored + persistent login + full mobile UI');
         };
     </script>
 </body>
