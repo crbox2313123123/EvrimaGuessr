@@ -402,6 +402,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // ====================== CONFIG ======================
         const MAP_IMAGE = 'firstdraft.png';
         const MAX_ROUNDS = 10;
         const SUPABASE_URL = 'https://cgufpeetcjywisqvhqlk.supabase.co';
@@ -785,6 +786,7 @@
         }
 
         async function loginWithProvider(provider) {
+            console.log('%c🔑 [DEBUG] loginWithProvider called with ' + provider, 'color:#ff0; font-weight:bold');
             localStorage.setItem('pendingEvrimaScore', totalScore.toString());
             const redirectTo = window.location.href;
             const codeVerifier = generateRandomString(64);
@@ -803,6 +805,7 @@
             const top = window.screenY + (window.outerHeight - height) / 2;
             const popup = window.open(authorizeUrl.toString(), `supabase-${provider}-popup`, `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes`);
             if (popup === null) {
+                console.log('%c❌ [DEBUG] Popup blocked', 'color:#f00');
                 alert('Popup was blocked by your browser. Please allow popups for this site and try again.');
                 localStorage.removeItem('pendingEvrimaScore');
                 return;
@@ -811,6 +814,7 @@
         }
 
         window.addEventListener('message', async (event) => {
+            console.log('%c📨 [DEBUG] Message received from popup', 'color:#0ff', event.data);
             if (event.origin !== window.location.origin) return;
             if (event.data && event.data.type === 'SUPABASE_AUTH_CALLBACK') {
                 const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
@@ -829,9 +833,11 @@
         });
 
         window.onload = async function () {
-            // EXACT 1.6 POPUP CALLBACK GUARD — THIS IS THE PART THAT MADE IT WORK
+            // EXACT 1.6 POPUP CALLBACK GUARD — THIS IS WHAT MADE IT WORK
+            console.log('%c🔍 [DEBUG] onload - checking if this is popup callback', 'color:#ff0');
             const isPopupCallback = window.opener !== null && (window.location.hash.includes('access_token') || window.location.search.includes('code=') || window.location.search.includes('error='));
             if (isPopupCallback) {
+                console.log('%c✅ [DEBUG] This is popup callback - handling auth', 'color:#0f0');
                 const { createClient } = supabase;
                 supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 try {
@@ -848,7 +854,8 @@
                 return;
             }
 
-            // Normal game load — 1.6 logic continues here
+            // Normal game load continues below
+            console.log('%c🚀 [DEBUG] Normal game load - starting 1.6 logic', 'color:#0f0');
             initMap();
             remainingLocations = [...LOCATIONS];
             bgMusic = document.getElementById('bg-music');
@@ -859,9 +866,11 @@
             const { createClient } = supabase;
             supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // Persistent login (only on main page — added after the popup guard)
+            // Persistent login (added safely after popup guard)
+            console.log('%c🔑 [DEBUG] Checking persistent login', 'color:#ff0');
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
+                console.log('%c✅ [DEBUG] User is already logged in', 'color:#0f0');
                 isLoggedIn = true;
                 pendingUserId = session.user.id;
             }
@@ -883,7 +892,7 @@
                 if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
             });
 
-            console.log('🚀 GAME LOADED — EXACT 1.6 AUTH + permanent login + full mobile UI');
+            console.log('🚀 GAME LOADED — EXACT 1.6 AUTH RESTORED + modern mobile UI');
         };
     </script>
 </body>
