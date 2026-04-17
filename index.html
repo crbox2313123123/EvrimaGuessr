@@ -282,24 +282,25 @@
             display: none;
         }
 
-                    #trophy-btn {
-                position: absolute;
-                top: 12px;
-                right: 20px;
-                background: rgba(16,185,129,0.15);
-                color: #10b981;
-                border: 3px solid #10b981;
-                width: 48px;
-                height: 48px;
-                border-radius: 50%;
-                font-size: 1.8rem;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                cursor: pointer;
-                box-shadow: 0 0 15px #10b981;
-                z-index: 1200;
-            }
+        /* TROPHY BUTTON - inside map frame */
+        #trophy-btn {
+            position: absolute;
+            top: 12px;
+            right: 20px;
+            background: rgba(16,185,129,0.15);
+            color: #10b981;
+            border: 3px solid #10b981;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            font-size: 1.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 0 15px #10b981;
+            z-index: 1200;
+        }
 
         @media (max-width: 900px) {
             .game-container { flex-direction: column; }
@@ -319,24 +320,34 @@
             button { padding: 10px 22px; font-size: 0.96rem; }
             #mute-btn { padding: 9px 14px; font-size: 0.9rem; bottom: 15px; left: 15px; }
             
-            /* MODIFIED: Higher on mobile so it overlaps screenshot + already has pop animation */
-/* MODIFIED: Much higher on mobile (more overlap with screenshot) + pop animation */
-        .result, #end-screen { 
-            top: 18% !important; 
-            transform: translate(-50%, -50%) !important; 
-            max-height: 88vh; 
-            overflow-y: auto; 
-            font-size: 0.93rem; 
-        }
+            /* MODIFIED: Much higher on mobile (more overlap with screenshot) + pop animation */
+            .result, #end-screen { 
+                top: 18% !important; 
+                transform: translate(-50%, -50%) !important; 
+                max-height: 88vh; 
+                overflow-y: auto; 
+                font-size: 0.93rem; 
+            }
             #mobile-round-info { display: block; font-size: 0.55rem; padding: 4px 10px; top: 8px; }
             .info { display: none; }
             .view-panel { max-height: none; }
             .panorama-container { margin-bottom: 12px; }
+
+            /* HIDE logged-in indicator completely on mobile */
+            #auth-indicator { display: none !important; }
         }
         @media (max-width: 480px) {
             .panorama-container { max-height: 188px; }
             .view-panel { max-height: none; }
             #mobile-round-info { font-size: 0.52rem; }
+        }
+
+        /* Desktop safety - force original position on big screens */
+        @media (min-width: 901px) {
+            .result, #end-screen {
+                top: 20px !important;
+                transform: translateX(-50%) !important;
+            }
         }
     </style>
 </head>
@@ -823,8 +834,9 @@
             }
         }
 
-        async function loadHighscores() {
-            const container = document.getElementById('highscores-scroll');
+        // FIXED: loadHighscores now accepts containerId so modal works
+        async function loadHighscores(containerId = 'highscores-scroll') {
+            const container = document.getElementById(containerId);
             container.innerHTML = '🔄 Loading leaderboard...';
             try {
                 const { data, error } = await supabaseClient.from(TABLE_NAME).select('*').order('score', { ascending: false }).limit(25);
@@ -897,7 +909,6 @@
             document.getElementById('fullscreen-preview').style.display = 'none';
         }
 
-
         function showLeaderboardModal() {
             document.getElementById('leaderboard-modal').style.display = 'flex';
             loadHighscores('modal-highscores');
@@ -906,8 +917,6 @@
         function hideLeaderboardModal() {
             document.getElementById('leaderboard-modal').style.display = 'none';
         }
-
-
 
         function loginWithProvider(provider) {
             saveCurrentGameState();
@@ -1004,15 +1013,6 @@
             });
         }
 
-
-
-
-
-
-
-
-
-
         initializeGame();
     </script>
     <!-- TROPHY LEADERBOARD MODAL -->
@@ -1027,8 +1027,6 @@
             </div>
         </div>
     </div>
-
-
 
 </body>
 </html>
