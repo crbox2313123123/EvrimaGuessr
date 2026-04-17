@@ -453,7 +453,7 @@
         const SUPABASE_ANON_KEY = 'sb_publishable_lsNrJO_6cRlkTMPz7PkLzw_yQCwj0ig';
         const TABLE_NAME = 'evrima_scores';
 
-        const LOCATIONS = [ /* unchanged - all 100 locations kept exactly as before */ 
+        const LOCATIONS = [
             { id: 1, image: 'ss1.png', coord: [1160, 2061] },
             { id: 2, image: 'ss2.png', coord: [685.5, 1325.9] },
             { id: 3, image: 'ss3.png', coord: [975.8, 1450.2] },
@@ -577,7 +577,8 @@
         async function sha256(plain) {
             const encoder = new TextEncoder();
             const data = encoder.encode(plain);
-            return await crypto.subtle.digest('SHA-256', data);
+            const hash = await crypto.subtle.digest('SHA-256', data);
+            return hash;
         }
         function base64urlencode(str) {
             return btoa(String.fromCharCode.apply(null, new Uint8Array(str)))
@@ -882,10 +883,9 @@
             pendingScore = 0;
         }
 
-        // ====================== AUTH – HEAVY DEBUG VERSION ======================
+        // ====================== AUTH ======================
         async function loginWithProvider(provider) {
-            console.groupCollapsed('%c🔑 LOGIN FLOW STARTED – ' + provider.toUpperCase(), 'color:#ff0; font-weight:bold; background:#111133; padding:2px 6px; border-radius:3px');
-            console.log('%c[DEBUG] redirectTo →', 'color:#0ff', window.location.origin + window.location.pathname);
+            console.log(`=== STARTING ${provider.toUpperCase()} LOGIN (FIXED) ===`);
 
             const redirectTo = window.location.origin + window.location.pathname;
             const codeVerifier = generateRandomString(64);
@@ -895,10 +895,6 @@
             const projectRef = urlObj.hostname.split('.')[0];
             const codeVerifierKey = `sb-${projectRef}-auth-token-code-verifier`;
 
-            console.log('%c[DEBUG] projectRef →', 'color:#0ff', projectRef);
-            console.log('%c[DEBUG] codeVerifierKey →', 'color:#0ff', codeVerifierKey);
-            console.log('%c[DEBUG] codeVerifier (first 8 chars) →', 'color:#0ff', codeVerifier.substring(0,8) + '...');
-
             localStorage.setItem(codeVerifierKey, codeVerifier);
 
             const authorizeUrl = new URL(`${SUPABASE_URL}/auth/v1/authorize`);
@@ -906,8 +902,6 @@
             authorizeUrl.searchParams.set('redirect_to', redirectTo);
             authorizeUrl.searchParams.set('code_challenge', codeChallenge);
             authorizeUrl.searchParams.set('code_challenge_method', 'S256');
-
-            console.log('%c[DEBUG] authorizeUrl →', 'color:#0ff', authorizeUrl.toString());
 
             const width = 620, height = 720;
             const left = window.screenX + (window.outerWidth - width) / 2;
@@ -917,33 +911,16 @@
                 `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes`);
 
             if (!popup) {
-                console.error('%c[ERROR] Popup blocked by browser!', 'color:#f44');
-                alert('Popup was blocked.\n\nPlease allow popups for this site and try again.');
+                alert('Popup was blocked. Please allow popups and try again.');
                 localStorage.removeItem(codeVerifierKey);
-            } else {
-                console.log('%c✅ Popup opened successfully', 'color:#0f0');
             }
-            console.groupEnd();
         }
 
         window.addEventListener('message', (event) => {
-            console.groupCollapsed('%c📨 MESSAGE RECEIVED from popup', 'color:#ff0; background:#111133; padding:2px 6px');
-            console.log('%c[DEBUG] event.origin →', 'color:#0ff', event.origin);
-            console.log('%c[DEBUG] event.data →', 'color:#0ff', event.data);
-
-            if (event.origin !== window.location.origin) {
-                console.warn('%c[WARNING] Origin mismatch – ignoring message', 'color:#f80');
-                console.groupEnd();
-                return;
-            }
-
+            if (event.origin !== window.location.origin) return;
             if (event.data && event.data.type === 'SUPABASE_AUTH_CALLBACK') {
-                console.log('%c✅ Correct callback type received', 'color:#0f0');
                 const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
-                console.log('%c[DEBUG] pendingScoreStr from localStorage →', 'color:#0ff', pendingScoreStr);
-
                 if (event.data.success && event.data.session && pendingScoreStr) {
-                    console.log('%c🎉 LOGIN SUCCESS – session received', 'color:#0f0; font-weight:bold');
                     pendingUserId = event.data.session.user.id;
                     isLoggedIn = true;
                     pendingScore = parseInt(pendingScoreStr);
@@ -953,77 +930,29 @@
                     document.getElementById('player-name-input').focus();
                     document.getElementById('logged-in-indicator').style.display = 'block';
                 } else {
-                    console.error('%c❌ LOGIN FAILED in message handler', 'color:#f44');
-                    console.log('%c[DEBUG] success flag →', 'color:#f80', event.data.success);
-                    console.log('%c[DEBUG] session present? →', 'color:#f80', !!event.data.session);
-                    console.log('%c[DEBUG] pendingScoreStr present? →', 'color:#f80', !!pendingScoreStr);
                     localStorage.removeItem('pendingEvrimaScore');
-                    alert('Login failed or was cancelled.\n\nPlease check the console (F12) and send me the logs so I can fix it instantly.');
+                    alert('Login failed or was cancelled.\n\nPlease try again.');
                 }
             }
-            console.groupEnd();
         });
 
         async function handleManualLogin() {
-            console.log('%c🔑 MANUAL LOGIN CLICKED (desktop)', 'color:#ff0; font-weight:bold');
+            console.log('=== MANUAL LOGIN CLICKED ===');
             localStorage.setItem('pendingEvrimaScore', totalScore.toString());
-            console.log('%c[DEBUG] pendingEvrimaScore saved →', 'color:#0ff', totalScore);
             await loginWithProvider('discord');
         }
 
         async function checkPersistentLogin() {
-            console.groupCollapsed('%c🔄 CHECKING PERSISTENT LOGIN', 'color:#0ff');
             try {
                 const { data: { session } } = await supabaseClient.auth.getSession();
-                console.log('%c[DEBUG] getSession result →', 'color:#0ff', session ? 'SESSION FOUND' : 'NO SESSION');
                 if (session && session.user) {
                     pendingUserId = session.user.id;
                     isLoggedIn = true;
                     const savedName = localStorage.getItem('evrimaLastDisplayName');
                     if (savedName) currentDisplayName = savedName;
                     document.getElementById('logged-in-indicator').style.display = 'block';
-                    console.log('%c✅ User is already logged in (persistent)', 'color:#0f0');
                 }
-            } catch (e) {
-                console.error('%c[ERROR] Persistent login check failed', 'color:#f44', e);
-            }
-            console.groupEnd();
-        }
-
-        // ====================== POPUP CALLBACK (the critical part) ======================
-        const isPopupCallback = window.opener !== null && (window.location.hash.includes('access_token') || window.location.search.includes('code=') || window.location.search.includes('error='));
-        if (isPopupCallback) {
-            console.groupCollapsed('%c📍 POPUP CALLBACK DETECTED', 'color:#0ff; background:#111133; padding:2px 6px');
-            console.log('%c[DEBUG] Current URL →', 'color:#0ff', window.location.href);
-            console.log('%c[DEBUG] search params →', 'color:#0ff', window.location.search);
-            console.log('%c[DEBUG] hash →', 'color:#0ff', window.location.hash);
-
-            const { createClient } = supabase;
-            supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-            setTimeout(async () => {
-                try {
-                    console.log('%c[DEBUG] Running getSession() in popup...', 'color:#0ff');
-                    const { data: { session }, error } = await supabaseClient.auth.getSession();
-                    console.log('%c[DEBUG] getSession() result →', 'color:#0ff', { session: !!session, error });
-
-                    if (error) throw error;
-
-                    if (window.opener && session) {
-                        console.log('%c✅ Sending success message to main window', 'color:#0f0');
-                        window.opener.postMessage({ type: 'SUPABASE_AUTH_CALLBACK', session: session, success: true }, '*');
-                    } else if (window.opener) {
-                        console.warn('%c⚠️ No session – sending failure', 'color:#f80');
-                        window.opener.postMessage({ type: 'SUPABASE_AUTH_CALLBACK', success: false }, '*');
-                    }
-                } catch (err) {
-                    console.error('%c❌ Popup getSession failed', 'color:#f44', err);
-                    if (window.opener) window.opener.postMessage({ type: 'SUPABASE_AUTH_CALLBACK', success: false }, '*');
-                }
-                console.groupEnd();
-                setTimeout(() => window.close(), 800);
-            }, 300); // small delay to ensure Supabase client is fully ready
-            return; // stop normal game load
+            } catch (e) { console.error('Session check failed:', e); }
         }
 
         // ====================== FULLSCREEN ======================
@@ -1040,8 +969,23 @@
 
         // ====================== STARTUP ======================
         window.onload = async function () {
-            console.log('%c🚀 GAME LOADED – starting normal flow', 'color:#0f0; font-weight:bold');
+            // Handle popup callback
+            const isPopupCallback = window.opener !== null && (window.location.hash.includes('access_token') || window.location.search.includes('code=') || window.location.search.includes('error='));
+            if (isPopupCallback) {
+                const { createClient } = supabase;
+                supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                try {
+                    const { data: { session } } = await supabaseClient.auth.getSession();
+                    if (window.opener && session) window.opener.postMessage({ type: 'SUPABASE_AUTH_CALLBACK', session: session, success: true }, '*');
+                    else if (window.opener) window.opener.postMessage({ type: 'SUPABASE_AUTH_CALLBACK', success: false }, '*');
+                } catch (err) {
+                    if (window.opener) window.opener.postMessage({ type: 'SUPABASE_AUTH_CALLBACK', success: false }, '*');
+                }
+                setTimeout(() => window.close(), 800);
+                return;
+            }
 
+            // Normal game load
             initMap();
             remainingLocations = [...LOCATIONS];
             bgMusic = document.getElementById('bg-music');
@@ -1071,6 +1015,8 @@
             window.addEventListener('resize', () => {
                 if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
             });
+
+            console.log('🚀 The Isle: Evrima GeoGuessr — fully loaded & login fixed');
         };
     </script>
 </body>
