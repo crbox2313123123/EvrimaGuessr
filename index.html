@@ -349,6 +349,57 @@
                 transform: translateX(-50%) !important;
             }
         }
+
+/* Mobile-only small logged-in icon (bottom left of map) */
+@media (max-width: 900px) {
+    #mobile-logged-in-icon {
+        position: absolute;
+        bottom: 80px;
+        left: 20px;
+        background: rgba(16,185,129,0.15);
+        color: #10b981;
+        border: 2px solid #10b981;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        font-size: 1.4rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 0 10px #10b981;
+        z-index: 1100;
+    }
+}
+
+/* Mobile logout context menu */
+#mobile-logout-menu {
+    display: none;
+    position: absolute;
+    bottom: 130px;
+    left: 20px;
+    background: #111133;
+    border: 3px solid #0f0;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 0 20px #0f0;
+    z-index: 1300;
+    min-width: 160px;
+}
+#mobile-logout-menu button {
+    width: 100%;
+    padding: 10px;
+    background: #111133;
+    color: #0f0;
+    border: 2px solid #0f0;
+    margin-top: 8px;
+    cursor: pointer;
+}
+#mobile-logout-menu button:hover {
+    background: #0f0;
+    color: #111133;
+}
+
     </style>
 </head>
 <body>
@@ -388,6 +439,7 @@
         <div class="map-panel">
             <div id="map"></div>
             <button id="trophy-btn" onclick="showLeaderboardModal()">🏆</button>
+            <button id="mobile-logged-in-icon" onclick="showMobileLogoutMenu()">👤</button>
 
             <div id="mobile-round-info">
                 Round <span id="mobile-round-num">1</span>/10 — Score: <span id="mobile-total-score">0</span>
@@ -918,6 +970,14 @@
             document.getElementById('leaderboard-modal').style.display = 'none';
         }
 
+function showMobileLogoutMenu() {
+    document.getElementById('mobile-logout-menu').style.display = 'block';
+}
+
+function hideMobileLogoutMenu() {
+    document.getElementById('mobile-logout-menu').style.display = 'none';
+}
+
         function loginWithProvider(provider) {
             saveCurrentGameState();
             localStorage.setItem('pendingEvrimaScore', totalScore.toString());
@@ -1027,6 +1087,13 @@
             </div>
         </div>
     </div>
+
+    <!-- Mobile Logout Context Menu -->
+    <div id="mobile-logout-menu">
+        <button onclick="logout()">Log out</button>
+        <button onclick="hideMobileLogoutMenu()" style="background:#330000;border-color:#f00;">Close</button>
+    </div>
+
 
 </body>
 </html>
