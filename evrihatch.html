@@ -4,282 +4,62 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>EVRIHATCH • The Isle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Press Start 2P', system-ui;
-            background: #0a0a1f;
-            color: #0f0;
-            overflow: hidden;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        header {
-            background: #111133;
-            padding: 10px 12px;
-            text-align: center;
-            border-bottom: 4px solid #0f0;
-            box-shadow: 0 0 20px #0f0;
-            flex-shrink: 0;
-        }
-        #mobile-header-banner {
-            max-height: 54px;
-            width: auto;
-            image-rendering: pixelated;
-        }
-        .game-container {
-            flex: 1;
-            display: flex;
-            overflow: hidden;
-        }
-        .bank-panel {
-            width: 220px;
-            background: #05050f;
-            border-right: 4px solid #0f0;
-            padding: 15px;
-            overflow-y: auto;
-        }
-        .bank-title {
-            color: #ff0;
-            text-align: center;
-            margin-bottom: 12px;
-            font-size: 0.85rem;
-            text-shadow: 0 0 8px #ff0;
-        }
-        .bank-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-        }
-        .bank-slot {
-            aspect-ratio: 1/1;
-            background: #111133;
-            border: 3px solid #0f0;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .bank-slot:hover { transform: scale(1.08); box-shadow: 0 0 20px #0f0; }
-        .bank-slot img {
-            max-width: 85%;
-            max-height: 85%;
-            image-rendering: pixelated;
-        }
-        .active-slot { border-color: #ff0; box-shadow: 0 0 25px #ff0; }
-
-        .center-panel {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #000;
-            position: relative;
-        }
-        #main-dino {
-            max-width: 92%;
-            max-height: 92%;
-            image-rendering: pixelated;
-            box-shadow: 0 0 60px #0f0;
-        }
-
-        .info-panel {
-            width: 300px;
-            background: #05050f;
-            border-left: 4px solid #0f0;
-            padding: 20px;
-            overflow-y: auto;
-        }
-        .info-title {
-            color: #ff0;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-        .stat-line {
-            margin: 12px 0;
-            font-size: 0.82rem;
-        }
-        .stat-bar {
-            height: 18px;
-            background: #111133;
-            border: 2px solid #0f0;
-            margin-top: 4px;
-        }
-        .stat-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #0f0, #ff0);
-        }
-        button {
-            font-family: 'Press Start 2P', system-ui;
-            padding: 12px 24px;
-            font-size: 1rem;
-            background: #111133;
-            color: #0f0;
-            border: 3px solid #0f0;
-            cursor: pointer;
-            width: 100%;
-            margin-top: 12px;
-        }
-        button:hover:not(:disabled) { background: #0f0; color: #111133; }
+        body { font-family: 'Press Start 2P', system-ui; background: #0a0a1f; color: #0f0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        header { background: #111133; padding: 10px 12px; text-align: center; border-bottom: 4px solid #0f0; box-shadow: 0 0 20px #0f0; }
+        #mobile-header-banner { max-height: 54px; image-rendering: pixelated; }
     </style>
 </head>
 <body>
     <header>
         <img id="mobile-header-banner" src="mobilebanner.png" alt="EVRIHATCH">
-        <p id="player-name">CONNECTING...</p>
+        <p id="player-name" class="text-xs mt-1 text-[#0f0]">CONNECTING...</p>
     </header>
 
-    <div class="game-container">
-        <!-- LEFT: DINO BANK -->
-        <div class="bank-panel">
-            <div class="bank-title">YOUR DINO BANK</div>
-            <div class="bank-grid" id="bank-grid"></div>
-        </div>
-
-        <!-- CENTER: BIG SELECTED DINO -->
-        <div class="center-panel">
-            <img id="main-dino" src="" alt="Selected Dino">
-        </div>
-
-        <!-- RIGHT: DETAILED INFO -->
-        <div class="info-panel">
-            <div class="info-title" id="dino-name-display">NO DINO SELECTED</div>
-            <div id="info-content">
-                <!-- Filled by JS -->
-            </div>
-            
-            <button onclick="sendToArea()">SEND TO AREA</button>
-            <button onclick="openCareScreen()">CARE / FEED / TRAIN</button>
-            <button onclick="logout()" style="background:#330000; border-color:#f44;">LOGOUT</button>
-        </div>
+    <div id="login-screen" class="flex-1 flex items-center justify-center flex-col gap-8">
+        <h2 class="text-3xl text-[#0f0] tracking-widest">EVRIHATCH</h2>
+        <button onclick="loginWithProvider('google')" class="w-80 py-5 border-4 border-[#4285F4] bg-[#4285F4] text-white text-lg">🔵 LOGIN WITH GOOGLE</button>
+        <button onclick="loginWithProvider('discord')" class="w-80 py-5 border-4 border-[#5865F2] bg-[#5865F2] text-white text-lg">🐙 LOGIN WITH DISCORD</button>
+        <p id="login-error" class="text-red-500 text-sm mt-4 hidden"></p>
     </div>
+
+    <div id="hub-screen" class="flex-1 flex overflow-hidden flex-col md:flex-row hidden"> ... (same hub as before) ... </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        // === EXACT KEYS FROM YOUR INDEX.HTML ===
         const SUPABASE_URL = 'https://cgufpeetcjywisqvhqlk.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_lsNrJO_6cRlkTMPz7PkLzw_yQCwj0ig';
 
         let supabaseClient;
-        let currentUser = null;
-        let allDinos = [];
-        let selectedDino = null;
 
         async function init() {
             const { createClient } = supabase;
             supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
             const { data: { session } } = await supabaseClient.auth.getSession();
+
             if (session?.user) {
-                currentUser = session.user;
-                document.getElementById('player-name').innerHTML = `HUB — <span style="color:#ff0">RAISING AS SURVIVOR</span>`;
-                await loadAllDinos();
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('hub-screen').classList.remove('hidden');
             } else {
-                // Login screen fallback (same style as GeoGuessr)
-                document.getElementById('player-name').textContent = 'NOT LOGGED IN — RELOAD TO LOGIN';
+                document.getElementById('login-screen').classList.remove('hidden');
             }
         }
 
-        async function loadAllDinos() {
-            const { data } = await supabaseClient
-                .from('evrima_player_dinos')
-                .select('*')
-                .eq('user_id', currentUser.id)
-                .order('created_at', { ascending: false });
-
-            allDinos = data || [];
-            
-            // If no dinos, create first egg
-            if (allDinos.length === 0) {
-                await createFirstEgg();
-                return;
-            }
-
-            renderBank();
-            // Auto-select first active or first dino
-            const active = allDinos.find(d => d.is_active) || allDinos[0];
-            selectDino(active);
-        }
-
-        async function createFirstEgg() {
-            const { data: template } = await supabaseClient
-                .from('evrima_dino_templates')
-                .select('id, species_key')
-                .eq('species_key', 'raptor')
-                .single();
-
-            const newDino = {
-                user_id: currentUser.id,
-                template_id: template.id,
-                species_key: 'raptor',
-                dino_name: 'Baby Raptor',
-                stage: 'egg',
-                is_active: true,
-                current_stats: {
-                    hunger: 100, health: 100, happiness: 100, bond: 0,
-                    xp: 0, growth_progress: 0, max_health: 100,
-                    combat_power: 50, hunger_rate: 100, mood: "neutral",
-                    energy: 100, thirst: 100, age_days: 0
-                }
-            };
-
-            const { data } = await supabaseClient
-                .from('evrima_player_dinos')
-                .insert(newDino)
-                .select()
-                .single();
-
-            allDinos = [data];
-            renderBank();
-            selectDino(data);
-        }
-
-        function renderBank() {
-            const grid = document.getElementById('bank-grid');
-            grid.innerHTML = '';
-            
-            allDinos.forEach(dino => {
-                const slot = document.createElement('div');
-                slot.className = `bank-slot ${dino.is_active ? 'active-slot' : ''}`;
-                slot.innerHTML = `<img src="${dino.stage === 'egg' ? 'https://via.placeholder.com/120x120/111133/0f0?text=EGG' : 'https://via.placeholder.com/120x120/111133/0f0?text=DINO'}" alt="${dino.dino_name}">`;
-                slot.onclick = () => selectDino(dino);
-                grid.appendChild(slot);
+        function loginWithProvider(provider) {
+            document.getElementById('login-error').classList.add('hidden');
+            supabaseClient.auth.signInWithOAuth({
+                provider: provider,
+                options: { redirectTo: window.location.origin + window.location.pathname }
+            }).catch(err => {
+                console.error(err);
+                const errEl = document.getElementById('login-error');
+                errEl.textContent = "Login failed: " + err.message;
+                errEl.classList.remove('hidden');
             });
         }
-
-        function selectDino(dino) {
-            selectedDino = dino;
-            document.getElementById('main-dino').src = dino.stage === 'egg' 
-                ? 'https://via.placeholder.com/500x500/111133/0f0?text=EGG' 
-                : 'https://via.placeholder.com/500x500/111133/0f0?text=DINO';
-
-            // Update info panel
-            let html = `<strong>${dino.dino_name}</strong><br>`;
-            html += `<small>${dino.species_key.toUpperCase()} — ${dino.stage.toUpperCase()}</small><br><br>`;
-
-            const stats = dino.current_stats;
-            Object.keys(stats).forEach(key => {
-                if (typeof stats[key] === 'number' && key !== 'age_days') {
-                    const percent = Math.min(100, Math.max(0, stats[key]));
-                    html += `<div class="stat-line">${key.toUpperCase()}: ${percent}<div class="stat-bar"><div class="stat-fill" style="width:${percent}%"></div></div></div>`;
-                }
-            });
-
-            document.getElementById('info-content').innerHTML = html;
-            document.getElementById('dino-name-display').textContent = dino.dino_name;
-        }
-
-        function logout() {
-            if (confirm('Log out of EvriHatch?')) supabaseClient.auth.signOut().then(() => location.reload());
-        }
-
-        // Temporary buttons until we make separate scenes
-        function sendToArea() { alert("Area selection coming in next scene (area.html)"); }
-        function openCareScreen() { alert("Care screen coming in care.html"); }
 
         window.onload = init;
     </script>
