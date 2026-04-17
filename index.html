@@ -607,12 +607,32 @@
         indicator.style.display = 'flex';
     }
 
+
+
+
+// Reset the three inner end-screen sections so they work every game
+function resetEndScreenUI() {
+    document.getElementById('save-score-section').style.display = 'block';
+    document.getElementById('name-prompt-section').style.display = 'none';
+    document.getElementById('score-saved-section').style.display = 'none';
+}
+
+
+
+
     function logout() {
-        if (confirm('Log out from leaderboard?')) {
+        if (confirm('Log out from the leaderboard?')) {
             supabaseClient.auth.signOut().then(() => {
                 isLoggedIn = false;
                 currentUser = null;
+                pendingUserId = null;
+                pendingScore = 0;
                 document.getElementById('auth-indicator').style.display = 'none';
+                // Full reload fixes the "upstream connect error" on re-login
+                window.location.reload();
+            }).catch(err => {
+                console.error('Logout error:', err);
+                window.location.reload(); // still reload even if signOut fails
             });
         }
     }
@@ -738,38 +758,51 @@
         }
         function nextRound() { hideResultAndNext(); }
 
-        function showEndScreen() {
-            const endScreen = document.getElementById('end-screen');
-            let gotNewHighScore = false;
-            if (totalScore > highScore) {
-                gotNewHighScore = true;
-                highScore = totalScore;
-                localStorage.setItem('evrimaHighScore', highScore);
-            }
-            document.getElementById('final-score').textContent = totalScore;
-            document.getElementById('high-score-display').textContent = highScore;
+            function showEndScreen() {
+                const endScreen = document.getElementById('end-screen');
+                resetEndScreenUI();                    // ← cleans everything first
 
-            if (isLoggedIn) {
-                pendingScore = totalScore;
-                document.getElementById('save-score-section').style.display = 'none';
-                document.getElementById('name-prompt-section').style.display = 'block';
-                document.getElementById('score-saved-section').style.display = 'none';
-                document.getElementById('player-name-input').focus();
-            } else {
-                document.getElementById('save-score-section').style.display = 'block';
-                document.getElementById('name-prompt-section').style.display = 'none';
-                document.getElementById('score-saved-section').style.display = 'none';
+                let gotNewHighScore = false;
+                if (totalScore > highScore) {
+                    gotNewHighScore = true;
+                    highScore = totalScore;
+                    localStorage.setItem('evrimaHighScore', highScore);
+                }
+
+                document.getElementById('final-score').textContent = totalScore;
+                document.getElementById('high-score-display').textContent = highScore;
+
+                if (isLoggedIn) {
+                    pendingScore = totalScore;
+                    document.getElementById('save-score-section').style.display = 'none';
+                    document.getElementById('name-prompt-section').style.display = 'block';
+                    document.getElementById('player-name-input').focus();
+                } 
+                // else stays at the defaults set by resetEndScreenUI()
+
+                endScreen.style.display = 'block';
+                if (gotNewHighScore) playSFX('sfx6'); else playSFX('sfx5');
             }
-            endScreen.style.display = 'block';
-            if (gotNewHighScore) playSFX('sfx6'); else playSFX('sfx5');
-        }
 
         function playAgain() {
             playSFX('sfx4');
             document.getElementById('end-screen').style.display = 'none';
+            
+            // Full reset so next game is completely clean
             totalScore = 0;
             currentRound = 0;
             remainingLocations = [...LOCATIONS];
+            currentLocation = null;
+            guessLat = null;
+            guessLng = null;
+            hasSubmitted = false;
+            
+            // Reset save state for next game (keeps you logged in)
+            pendingScore = 0;
+            
+            document.getElementById('total-score').textContent = '0';
+            document.getElementById('mobile-total-score').textContent = '0';
+            
             startNewRound();
         }
 
