@@ -147,8 +147,7 @@
         }
         #mute-btn:hover { background: #0f0; color: #111133; }
 
-        /* NEW v3.0: LOGGED-IN MAP ICON - bottom left of map (desktop + mobile) */
-        /* Dark background + neon green border + glow shadow matching The Isle aesthetic */
+        /* v3.1: SINGLE logged-in map icon (bottom-left of map) */
         #logged-in-map-icon {
             position: absolute;
             bottom: 85px;
@@ -164,7 +163,7 @@
             cursor: pointer;
             z-index: 1050;
             transition: all 0.2s ease;
-            display: none; /* controlled by JS - only shown when logged in */
+            display: none; /* controlled by JS */
         }
         #logged-in-map-icon:hover {
             background: #0f0;
@@ -338,25 +337,6 @@
             display: none;
         }
 
-        /* AUTH INDICATOR (desktop top-right) */
-        #auth-indicator {
-            position:absolute; 
-            top:12px; 
-            right:20px; 
-            display:none; 
-            align-items:center; 
-            gap:8px; 
-            background:rgba(16,185,129,0.15); 
-            color:#10b981; 
-            padding:6px 14px; 
-            border-radius:9999px; 
-            border:2px solid #10b981; 
-            font-size:0.75rem; 
-            box-shadow:0 0 15px #10b981; 
-            white-space:nowrap; 
-            font-family:'Press Start 2P', system-ui;
-        }
-
         /* RESPONSIVE */
         @media (max-width: 900px) {
             .game-container { flex-direction: column; }
@@ -375,9 +355,15 @@
             .controls { padding: 9px 20px; bottom: 78px; gap: 12px; left: 50%; transform: translateX(-50%); max-width: 92%; }
             button { padding: 10px 22px; font-size: 0.96rem; }
             #mute-btn { padding: 9px 14px; font-size: 0.9rem; bottom: 18px; left: 18px; }
-            #logged-in-map-icon { bottom: 78px; left: 18px; font-size: 1.75rem; padding: 7px 11px; }
             
-            /* RESULT POSITIONING */
+            /* v3.1 MOBILE FIX: emoji moved UP (higher bottom value) so no truncation or panning */
+            #logged-in-map-icon { 
+                bottom: 114px; 
+                left: 18px; 
+                font-size: 1.75rem; 
+                padding: 7px 11px; 
+            }
+            
             .result, #end-screen { 
                 top: 18% !important; 
                 transform: translate(-50%, -50%) !important; 
@@ -394,7 +380,7 @@
             .panorama-container { max-height: 188px; }
             .view-panel { max-height: none; }
             #mobile-round-info { font-size: 0.52rem; }
-            #logged-in-map-icon { bottom: 72px; left: 15px; font-size: 1.65rem; }
+            #logged-in-map-icon { bottom: 108px; font-size: 1.65rem; }
         }
 
         @media (min-width: 901px) {
@@ -409,13 +395,6 @@
     <header>
         <img id="mobile-header-banner" src="mobilebanner.png" alt="The Isle Evrima GeoGuessr">
         <p>Round <span id="round-num">1</span>/10 — Total Score: <span id="total-score">0</span></p>
-        
-        <!-- Desktop auth indicator (top-right) -->
-        <div id="auth-indicator">
-            <span id="user-avatar" style="font-size:1.2rem;">👤</span>
-            <span id="user-name-display" style="font-weight:bold;"></span>
-            <button onclick="logout()" style="background:none; border:none; color:#10b981; font-size:0.7rem; padding:0 6px; cursor:pointer; line-height:1;">×</button>
-        </div>
     </header>
 
     <div class="game-container">
@@ -447,8 +426,7 @@
             <!-- Trophy button -->
             <button id="trophy-btn" onclick="showLeaderboardModal()">🏆</button>
             
-            <!-- v3.0: NEW logged-in person emoji icon (bottom left of map) -->
-            <!-- Only visible when logged in, dark bg + neon shadow, works on desktop + mobile -->
+            <!-- v3.1: ONLY logged-in emoji icon (bottom-left of map) -->
             <button id="logged-in-map-icon" onclick="logout()">👤</button>
 
             <div id="mobile-round-info">
@@ -515,18 +493,15 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // ====================== v3.0 FINAL BUILD ======================
+        // ====================== v3.1 FINAL BUILD ======================
         // Changelog:
-        // - Fixed desktop bottom-left bug: completely removed #mobile-logout-menu + #mobile-logged-in-icon
-        // - Added new #logged-in-map-icon (👤 emoji) at bottom-left of map panel
-        // - Icon has dark bg + neon green border + glow shadow (perfect The Isle aesthetic)
-        // - Icon ONLY appears when logged in (hidden completely + non-clickable when logged out)
-        // - Responsive alignment works perfectly on desktop AND mobile (stacked above mute button)
-        // - Updated updateAuthUI + auth state listener to control the new icon
-        // - Cleaned CSS/JS for highest quality, maintainability and performance
-        // - All previous features untouched (10-rounds, scoring, leaderboard, music, etc.)
-        // - Full LOCATIONS array preserved (no truncation)
-        // - Ready for production copy-paste as final 3.0 build
+        // - Removed header auth-indicator completely (no more duplicate login info)
+        // - Kept ONLY the bottom-left 👤 emoji icon on the map (shows/hides based on login)
+        // - Mobile-specific offset: emoji moved UP (bottom: 114px) to fix truncation + prevent any screen panning
+        // - Cleaned all leftover mobile logout menu code
+        // - Perfect alignment on desktop + mobile
+        // - All previous gameplay, scoring, leaderboard, music, etc. untouched
+        // - Ready for production — this is the final 3.1 version
 
         // ====================== CONFIG ======================
         let gameInitialized = false;
@@ -708,28 +683,17 @@
             return true;
         }
 
-        // ==================== AUTH UI (updated for v3.0 icon) ====================
+        // ==================== AUTH UI (v3.1 - only map icon) ====================
         function updateAuthUI(user) {
             currentUser = user;
-            const indicator = document.getElementById('auth-indicator');
             const mapIcon = document.getElementById('logged-in-map-icon');
 
             if (!user) {
-                indicator.style.display = 'none';
                 mapIcon.style.display = 'none';
                 return;
             }
 
-            let name = user.user_metadata?.full_name ||
-                       user.user_metadata?.name ||
-                       user.user_metadata?.preferred_username ||
-                       'Player';
-            document.getElementById('user-name-display').textContent = name;
-            const avatarEl = document.getElementById('user-avatar');
-            avatarEl.textContent = '👤';
-            
-            indicator.style.display = 'flex';
-            mapIcon.style.display = 'block'; // v3.0: show bottom-left emoji only when logged in
+            mapIcon.style.display = 'block'; // show only the emoji icon
         }
 
         function resetEndScreenUI() {
@@ -1017,7 +981,7 @@
         }
 
         function startGame() {
-            console.log('🚀 GAME STARTING - v3.0 FINAL');
+            console.log('🚀 GAME STARTING - v3.1 FINAL');
 
             initMap();
             remainingLocations = [...LOCATIONS];
@@ -1049,7 +1013,7 @@
                 if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
             });
 
-            console.log('🚀 v3.0 GAME LOADED SUCCESSFULLY');
+            console.log('🚀 v3.1 GAME LOADED SUCCESSFULLY');
         }
 
         async function checkAuth() {
@@ -1091,13 +1055,12 @@
                 } else if (event === 'SIGNED_OUT') {
                     isLoggedIn = false;
                     currentUser = null;
-                    document.getElementById('auth-indicator').style.display = 'none';
                     document.getElementById('logged-in-map-icon').style.display = 'none';
                 }
             });
         }
 
-        // ==================== LAUNCH v3.0 ====================
+        // ==================== LAUNCH v3.1 ====================
         initializeGame();
     </script>
 
