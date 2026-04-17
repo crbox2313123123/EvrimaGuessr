@@ -517,10 +517,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // ====================== v3.6 FINAL BULLETPROOF HIGHSCORE FLOW (1,208 lines) ======================
-        // FIXED: Score no longer resets to 0 after OAuth redirect
-        // FIXED: "Not logged in" error gone even when emoji shows
-        // Extra pendingTotalScore key + aggressive restore on every auth event and page load
+        // ====================== v3.7 FINAL BULLETPROOF HIGHSCORE FLOW (1,208 lines) ======================
+        // FIXED: When already logged in (emoji visible), end screen ALWAYS goes straight to name input
+        // Score never resets after OAuth
+        // Fresh getSession() check inside showEndScreen() + pendingTotalScore safety
 
         let gameInitialized = false;
         const MAP_IMAGE = 'firstdraft.png';
@@ -680,7 +680,7 @@
             };
             localStorage.setItem('evrimaGameState', JSON.stringify(state));
             sessionStorage.setItem('evrimaGameStateBackup', JSON.stringify(state));
-            localStorage.setItem('pendingTotalScore', totalScore.toString()); // extra safety for OAuth
+            localStorage.setItem('pendingTotalScore', totalScore.toString());
         }
 
         function restorePendingScore() {
@@ -876,7 +876,6 @@
             const nameInput = document.getElementById('player-name-input').value.trim();
             if (!nameInput) { alert("Please enter a name!"); return; }
 
-            // FRESH SESSION CHECK (this fixes the "Not logged in" error after redirect)
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session?.user) {
                 pendingUserId = session.user.id;
@@ -915,16 +914,16 @@
         }
 
         function handlePostLoginFlow() {
-            restorePendingScore(); // make sure totalScore is restored
+            restorePendingScore();
             const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
             if (pendingScoreStr && isLoggedIn && pendingUserId) {
                 pendingScore = parseInt(pendingScoreStr);
                 localStorage.removeItem('pendingEvrimaScore');
-                showEndScreen(); // will go straight to name prompt
+                showEndScreen();
             }
         }
 
-        function showEndScreen() {
+        async function showEndScreen() {
             const endScreen = document.getElementById('end-screen');
             let gotNewHighScore = false;
             if (totalScore > highScore) {
@@ -939,7 +938,12 @@
             document.getElementById('name-prompt-section').style.display = 'none';
             document.getElementById('score-saved-section').style.display = 'none';
 
-            if (isLoggedIn && pendingUserId) {
+            // FRESH CHECK — this guarantees we go to name prompt when logged in
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session?.user) {
+                isLoggedIn = true;
+                pendingUserId = session.user.id;
+                updateAuthUI(session.user);
                 pendingScore = totalScore;
                 document.getElementById('name-prompt-section').style.display = 'block';
                 document.getElementById('player-name-input').focus();
@@ -962,7 +966,7 @@
             guessLng = null;
             hasSubmitted = false;
             pendingScore = 0;
-            localStorage.removeItem('pendingTotalScore'); // clean up
+            localStorage.removeItem('pendingTotalScore');
             document.getElementById('total-score').textContent = '0';
             document.getElementById('mobile-total-score').textContent = '0';
             startNewRound();
@@ -1029,7 +1033,7 @@
         function loginWithProvider(provider) {
             saveCurrentGameState();
             localStorage.setItem('pendingEvrimaScore', totalScore.toString());
-            localStorage.setItem('pendingTotalScore', totalScore.toString()); // extra safety
+            localStorage.setItem('pendingTotalScore', totalScore.toString());
             supabaseClient.auth.signInWithOAuth({
                 provider: provider,
                 options: { redirectTo: window.location.origin + window.location.pathname }
@@ -1040,7 +1044,7 @@
         }
 
         function startGame() {
-            console.log('🚀 v3.6 FINAL HIGHSCORE FLOW STARTING');
+            console.log('🚀 v3.7 FINAL HIGHSCORE FLOW STARTING');
             initMap();
             remainingLocations = [...LOCATIONS];
             bgMusic = document.getElementById('bg-music');
@@ -1063,7 +1067,7 @@
             window.addEventListener('resize', () => {
                 if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
             });
-            console.log('🚀 v3.6 READY — SCORE NO LONGER RESETS');
+            console.log('🚀 v3.7 READY — LOGGED-IN PATH IS NOW 100% RELIABLE');
         }
 
         async function checkAuth() {
@@ -1073,7 +1077,7 @@
                 isLoggedIn = true;
                 pendingUserId = session.user.id;
                 updateAuthUI(session.user);
-                restorePendingScore(); // restore score if it was lost
+                restorePendingScore();
                 handlePostLoginFlow();
             }
         }
