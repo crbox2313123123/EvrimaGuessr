@@ -372,7 +372,7 @@
             .view-panel { width: 100% !important; border-right: none; border-bottom: 4px solid #0f0; max-height: 53vh; overflow-y: auto; padding: 10px 10px 6px; }
             .map-panel { flex: 1; min-height: 47vh; position: relative; }
             #banner-top { display: none; }
-            .panorama-container { max-height: 240px; border-width: 5px; margin-top: 0; margin-bottom: 8px; } /* increased for no truncation */
+            .panorama-container { max-height: 240px; border-width: 5px; margin-top: 0; margin-bottom: 8px; }
             #banner-bottom { display: none; }
             #highscore-header { font-size: 0.72rem; height: 32px; }
             #highscores-scroll { font-size: 0.78rem; padding: 6px 10px; }
@@ -522,12 +522,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // ====================== v3.8 FINAL MOBILE UI POLISH + HIGHSCORE STABILITY ======================
-        // Panorama always fully visible on mobile
-        // Map resets after highscore / play again
-        // Submit Guess button non-selectable
-        // Browser zoom/pan controlled
-        // Highscore logic unchanged (logged in → direct name prompt)
+        // ====================== v3.9 FINAL MOBILE SCROLL RESET ======================
+        // Panorama always fully visible
+        // After Play Again / highscore, entire webpage scrolls back to top
+        // Leaflet map reset kept exactly as before (you said it's perfect)
 
         let gameInitialized = false;
         const MAP_IMAGE = 'firstdraft.png';
@@ -808,6 +806,7 @@
             document.getElementById('next-btn').style.display = 'none';
             document.getElementById('result-panel').style.display = 'none';
             resetMapView();
+            window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); // FORCE PAGE BACK TO TOP
         }
 
         function clearMarkers() {
@@ -979,7 +978,7 @@
             document.getElementById('total-score').textContent = '0';
             document.getElementById('mobile-total-score').textContent = '0';
             startNewRound();
-            resetMapView(); // ensure map is reset for next game
+            window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); // FORCE WHOLE PAGE BACK TO TOP
         }
 
         function clearHighScore() {
@@ -1054,7 +1053,7 @@
         }
 
         function startGame() {
-            console.log('🚀 v3.8 FINAL MOBILE UI POLISH STARTING');
+            console.log('🚀 v3.9 FINAL MOBILE SCROLL RESET STARTING');
             initMap();
             remainingLocations = [...LOCATIONS];
             bgMusic = document.getElementById('bg-music');
@@ -1077,7 +1076,7 @@
             window.addEventListener('resize', () => {
                 if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
             });
-            console.log('🚀 v3.8 READY — MOBILE UI IS NOW PERFECT');
+            console.log('🚀 v3.9 READY — WHOLE PAGE NOW SCROLLS BACK TO TOP');
         }
 
         async function checkAuth() {
