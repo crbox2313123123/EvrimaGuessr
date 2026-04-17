@@ -24,6 +24,7 @@
             border-bottom: 4px solid #0f0;
             box-shadow: 0 0 20px #0f0;
             flex-shrink: 0;
+            position: relative;
         }
         #mobile-header-banner {
             max-height: 54px;
@@ -114,20 +115,8 @@
         }
         .map-panel { flex: 1; position: relative; }
         #map { width: 100%; height: 100%; }
-        #coord-debug {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            background: rgba(10,10,30,0.95);
-            color: #0f0;
-            padding: 10px 15px;
-            border: 3px solid #0f0;
-            border-radius: 4px;
-            font-size: 1rem;
-            z-index: 1000;
-            display: none;
-            box-shadow: 0 0 15px #0f0;
-        }
+
+        /* REMOVED coord-debug completely - no more "Clicked at XY" anywhere */
         .controls {
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
             background: rgba(10,10,30,0.95); padding: 12px 30px; border: 4px solid #0f0; border-radius: 8px;
@@ -158,6 +147,8 @@
             cursor: pointer;
         }
         button:hover { background: #0f0; color: #111133; }
+
+        /* RESULT & END-SCREEN - higher on mobile + fast pop-in animation */
         .result, #end-screen {
             position: absolute;
             top: 20px;
@@ -173,7 +164,13 @@
             display: none;
             max-width: 94%;
             pointer-events: auto;
+            animation: popIn 180ms ease-out forwards;
         }
+        @keyframes popIn {
+            0% { transform: translate(-50%, -60%) scale(0.7); opacity: 0; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
         .footer {
             text-align: center;
             padding: 10px;
@@ -284,6 +281,7 @@
             z-index: 1100;
             display: none;
         }
+
         @media (max-width: 900px) {
             .game-container { flex-direction: column; }
             #mobile-header-banner { width: 100%; height: 68px; object-fit: contain; margin: 4px 0 6px 0; }
@@ -301,14 +299,24 @@
             .controls { padding: 9px 20px; bottom: 78px; gap: 12px; left: 50%; transform: translateX(-50%); max-width: 92%; }
             button { padding: 10px 22px; font-size: 0.96rem; }
             #mute-btn { padding: 9px 14px; font-size: 0.9rem; bottom: 15px; left: 15px; }
-            .result, #end-screen { top: 15px; padding: 20px 25px; max-width: 94%; max-height: 88vh; overflow-y: auto; font-size: 0.93rem; }
-            #mobile-round-info { display: block; font-size: 0.78rem; padding: 4px 12px; top: 8px; }
+            
+            /* MODIFIED: Higher on mobile so it overlaps screenshot + already has pop animation */
+            .result, #end-screen { 
+                top: 38% !important; 
+                transform: translate(-50%, -50%) !important; 
+                max-height: 88vh; 
+                overflow-y: auto; 
+                font-size: 0.93rem; 
+            }
+            #mobile-round-info { display: block; font-size: 0.55rem; padding: 4px 10px; top: 8px; }
             .info { display: none; }
+            .view-panel { max-height: none; }
+            .panorama-container { margin-bottom: 12px; }
         }
         @media (max-width: 480px) {
             .panorama-container { max-height: 188px; }
-            .view-panel { max-height: 51vh; }
-            #mobile-round-info { font-size: 0.74rem; }
+            .view-panel { max-height: none; }
+            #mobile-round-info { font-size: 0.52rem; }
         }
     </style>
 </head>
@@ -350,9 +358,6 @@
             <div id="map"></div>
             <div id="mobile-round-info">
                 Round <span id="mobile-round-num">1</span>/10 — Score: <span id="mobile-total-score">0</span>
-            </div>
-            <div id="coord-debug">
-                Clicked at: <span id="coord-text" style="color:#ff0; font-weight:bold;">X: 0 | Y: 0</span>
             </div>
             <button id="mute-btn">🔊 MUSIC ON</button>
             <div class="controls">
@@ -542,103 +547,93 @@
         let pendingScore = 0;
         let isLoggedIn = false;
 
-    let currentUser = null; // for the indicator
+        let currentUser = null; // for the indicator
 
-    // ==================== NEW: GAME STATE PERSISTENCE (fixes login) ====================
-    function saveCurrentGameState() {
-        const state = {
-            totalScore,
-            currentRound,
-            hasSubmitted,
-            guessLat,
-            guessLng,
-            currentLocationId: currentLocation ? currentLocation.id : null,
-            remainingLocationIds: remainingLocations.map(loc => loc.id),
-            isLoggedIn,
-            pendingUserId,
-            pendingScore
-        };
-        localStorage.setItem('evrimaGameState', JSON.stringify(state));
-    }
-
-    function restoreGameState() {
-        const saved = localStorage.getItem('evrimaGameState');
-        if (!saved) return false;
-        const state = JSON.parse(saved);
-
-        totalScore = state.totalScore || 0;
-        currentRound = state.currentRound || 0;
-        hasSubmitted = state.hasSubmitted || false;
-        guessLat = state.guessLat || null;
-        guessLng = state.guessLng || null;
-        pendingUserId = state.pendingUserId || null;
-        pendingScore = state.pendingScore || 0;
-
-        if (state.remainingLocationIds && state.remainingLocationIds.length) {
-            remainingLocations = LOCATIONS.filter(loc => state.remainingLocationIds.includes(loc.id));
-        }
-        if (state.currentLocationId) {
-            currentLocation = LOCATIONS.find(loc => loc.id === state.currentLocationId) || null;
+        // ==================== NEW: GAME STATE PERSISTENCE (fixes login) ====================
+        function saveCurrentGameState() {
+            const state = {
+                totalScore,
+                currentRound,
+                hasSubmitted,
+                guessLat,
+                guessLng,
+                currentLocationId: currentLocation ? currentLocation.id : null,
+                remainingLocationIds: remainingLocations.map(loc => loc.id),
+                isLoggedIn,
+                pendingUserId,
+                pendingScore
+            };
+            localStorage.setItem('evrimaGameState', JSON.stringify(state));
         }
 
-        document.getElementById('total-score').textContent = totalScore;
-        document.getElementById('mobile-total-score').textContent = totalScore;
-        document.getElementById('round-num').textContent = currentRound;
-        document.getElementById('mobile-round-num').textContent = currentRound;
+        function restoreGameState() {
+            const saved = localStorage.getItem('evrimaGameState');
+            if (!saved) return false;
+            const state = JSON.parse(saved);
 
-        localStorage.removeItem('evrimaGameState');
-        return true;
-    }
+            totalScore = state.totalScore || 0;
+            currentRound = state.currentRound || 0;
+            hasSubmitted = state.hasSubmitted || false;
+            guessLat = state.guessLat || null;
+            guessLng = state.guessLng || null;
+            pendingUserId = state.pendingUserId || null;
+            pendingScore = state.pendingScore || 0;
 
-    function updateAuthUI(user) {
-        currentUser = user;
-        const indicator = document.getElementById('auth-indicator');
-        if (!user) {
-            indicator.style.display = 'none';
-            return;
+            if (state.remainingLocationIds && state.remainingLocationIds.length) {
+                remainingLocations = LOCATIONS.filter(loc => state.remainingLocationIds.includes(loc.id));
+            }
+            if (state.currentLocationId) {
+                currentLocation = LOCATIONS.find(loc => loc.id === state.currentLocationId) || null;
+            }
+
+            document.getElementById('total-score').textContent = totalScore;
+            document.getElementById('mobile-total-score').textContent = totalScore;
+            document.getElementById('round-num').textContent = currentRound;
+            document.getElementById('mobile-round-num').textContent = currentRound;
+
+            localStorage.removeItem('evrimaGameState');
+            return true;
         }
-        let name = user.user_metadata?.full_name ||
-                   user.user_metadata?.name ||
-                   user.user_metadata?.preferred_username ||
-                   'Player';
-        document.getElementById('user-name-display').textContent = name;
-        const avatarEl = document.getElementById('user-avatar');
-        avatarEl.textContent = '👤';
-        indicator.style.display = 'flex';
-    }
 
-
-
-
-// Reset the three inner end-screen sections so they work every game
-function resetEndScreenUI() {
-    document.getElementById('save-score-section').style.display = 'block';
-    document.getElementById('name-prompt-section').style.display = 'none';
-    document.getElementById('score-saved-section').style.display = 'none';
-}
-
-
-
-
-    function logout() {
-        if (confirm('Log out from the leaderboard?')) {
-            supabaseClient.auth.signOut().then(() => {
-                isLoggedIn = false;
-                currentUser = null;
-                pendingUserId = null;
-                pendingScore = 0;
-                document.getElementById('auth-indicator').style.display = 'none';
-                // Full reload fixes the "upstream connect error" on re-login
-                window.location.reload();
-            }).catch(err => {
-                console.error('Logout error:', err);
-                window.location.reload(); // still reload even if signOut fails
-            });
+        function updateAuthUI(user) {
+            currentUser = user;
+            const indicator = document.getElementById('auth-indicator');
+            if (!user) {
+                indicator.style.display = 'none';
+                return;
+            }
+            let name = user.user_metadata?.full_name ||
+                       user.user_metadata?.name ||
+                       user.user_metadata?.preferred_username ||
+                       'Player';
+            document.getElementById('user-name-display').textContent = name;
+            const avatarEl = document.getElementById('user-avatar');
+            avatarEl.textContent = '👤';
+            indicator.style.display = 'flex';
         }
-    }
 
+        // Reset the three inner end-screen sections so they work every game
+        function resetEndScreenUI() {
+            document.getElementById('save-score-section').style.display = 'block';
+            document.getElementById('name-prompt-section').style.display = 'none';
+            document.getElementById('score-saved-section').style.display = 'none';
+        }
 
-
+        function logout() {
+            if (confirm('Log out from the leaderboard?')) {
+                supabaseClient.auth.signOut().then(() => {
+                    isLoggedIn = false;
+                    currentUser = null;
+                    pendingUserId = null;
+                    pendingScore = 0;
+                    document.getElementById('auth-indicator').style.display = 'none';
+                    window.location.reload();
+                }).catch(err => {
+                    console.error('Logout error:', err);
+                    window.location.reload();
+                });
+            }
+        }
 
         function initMap() {
             mapInstance = L.map('map', { crs: L.CRS.Simple, minZoom: -5, maxZoom: 6, zoomSnap: 0.25 });
@@ -651,10 +646,6 @@ function resetEndScreenUI() {
                 initialZoom = -1;
                 mapInstance.setView(initialCenter, initialZoom);
                 mapInstance.on('click', function (e) {
-                    const x = Math.round(e.latlng.lat * 10) / 10;
-                    const y = Math.round(e.latlng.lng * 10) / 10;
-                    document.getElementById('coord-debug').style.display = 'block';
-                    document.getElementById('coord-text').textContent = `X: ${x} | Y: ${y}`;
                     if (hasSubmitted || !currentLocation) return;
                     if (guessMarker) mapInstance.removeLayer(guessMarker);
                     guessLat = e.latlng.lat;
@@ -712,7 +703,6 @@ function resetEndScreenUI() {
             document.getElementById('next-btn').style.display = 'none';
             document.getElementById('result-panel').style.display = 'none';
             resetMapView();
-            document.getElementById('coord-debug').style.display = 'none';
         }
 
         function clearMarkers() {
@@ -758,37 +748,35 @@ function resetEndScreenUI() {
         }
         function nextRound() { hideResultAndNext(); }
 
-            function showEndScreen() {
-                const endScreen = document.getElementById('end-screen');
-                resetEndScreenUI();                    // ← cleans everything first
+        function showEndScreen() {
+            const endScreen = document.getElementById('end-screen');
+            resetEndScreenUI();
 
-                let gotNewHighScore = false;
-                if (totalScore > highScore) {
-                    gotNewHighScore = true;
-                    highScore = totalScore;
-                    localStorage.setItem('evrimaHighScore', highScore);
-                }
-
-                document.getElementById('final-score').textContent = totalScore;
-                document.getElementById('high-score-display').textContent = highScore;
-
-                if (isLoggedIn) {
-                    pendingScore = totalScore;
-                    document.getElementById('save-score-section').style.display = 'none';
-                    document.getElementById('name-prompt-section').style.display = 'block';
-                    document.getElementById('player-name-input').focus();
-                } 
-                // else stays at the defaults set by resetEndScreenUI()
-
-                endScreen.style.display = 'block';
-                if (gotNewHighScore) playSFX('sfx6'); else playSFX('sfx5');
+            let gotNewHighScore = false;
+            if (totalScore > highScore) {
+                gotNewHighScore = true;
+                highScore = totalScore;
+                localStorage.setItem('evrimaHighScore', highScore);
             }
+
+            document.getElementById('final-score').textContent = totalScore;
+            document.getElementById('high-score-display').textContent = highScore;
+
+            if (isLoggedIn) {
+                pendingScore = totalScore;
+                document.getElementById('save-score-section').style.display = 'none';
+                document.getElementById('name-prompt-section').style.display = 'block';
+                document.getElementById('player-name-input').focus();
+            } 
+
+            endScreen.style.display = 'block';
+            if (gotNewHighScore) playSFX('sfx6'); else playSFX('sfx5');
+        }
 
         function playAgain() {
             playSFX('sfx4');
             document.getElementById('end-screen').style.display = 'none';
             
-            // Full reset so next game is completely clean
             totalScore = 0;
             currentRound = 0;
             remainingLocations = [...LOCATIONS];
@@ -797,7 +785,6 @@ function resetEndScreenUI() {
             guessLng = null;
             hasSubmitted = false;
             
-            // Reset save state for next game (keeps you logged in)
             pendingScore = 0;
             
             document.getElementById('total-score').textContent = '0';
@@ -857,6 +844,11 @@ function resetEndScreenUI() {
                     document.getElementById('name-prompt-section').style.display = 'none';
                     document.getElementById('score-saved-section').style.display = 'block';
                     loadHighscores();
+                    // Auto play again after showing success
+                    setTimeout(() => {
+                        document.getElementById('end-screen').style.display = 'none';
+                        playAgain();
+                    }, 900);
                 } else {
                     alert('Failed to save score.');
                 }
@@ -883,123 +875,102 @@ function resetEndScreenUI() {
             document.getElementById('fullscreen-preview').style.display = 'none';
         }
 
+        function loginWithProvider(provider) {
+            saveCurrentGameState();
+            localStorage.setItem('pendingEvrimaScore', totalScore.toString());
 
+            supabaseClient.auth.signInWithOAuth({
+                provider: provider,
+                options: { redirectTo: window.location.origin + window.location.pathname }
+            }).catch(err => {
+                console.error('Login error:', err);
+                alert('Login failed: ' + err.message);
+                localStorage.removeItem('pendingEvrimaScore');
+                localStorage.removeItem('evrimaGameState');
+            });
+        }
 
+        async function startGame() {
+            console.log('🚀 GAME STARTING');
 
+            initMap();
+            remainingLocations = [...LOCATIONS];
 
+            bgMusic = document.getElementById('bg-music');
+            bgMusic.volume = 0.25;
+            bgMusic.play().catch(() => {});
+            document.getElementById('mute-btn').addEventListener('click', toggleMusic);
 
+            const { createClient } = supabase;
+            supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-function loginWithProvider(provider) {
-    saveCurrentGameState();                    // ← Saves your entire game so nothing is lost
-    localStorage.setItem('pendingEvrimaScore', totalScore.toString());
+            loadHighscores();
 
-    supabaseClient.auth.signInWithOAuth({
-        provider: provider,
-        options: { redirectTo: window.location.origin + window.location.pathname }
-    }).catch(err => {
-        console.error('Login error:', err);
-        alert('Login failed: ' + err.message);
-        localStorage.removeItem('pendingEvrimaScore');
-        localStorage.removeItem('evrimaGameState');
-    });
-}
+            mapInstance.on('click', function autoStart() {
+                if (bgMusic.paused && !isMusicMuted) bgMusic.play().catch(() => {});
+                mapInstance.off('click', autoStart);
+            });
 
+            const panoramaContainer = document.getElementById('panorama-container');
+            panoramaContainer.addEventListener('click', openFullscreen);
+            panoramaContainer.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) openFullscreen();
+            }, { passive: true });
 
+            setTimeout(startNewRound, 600);
 
+            window.addEventListener('resize', () => {
+                if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
+            });
 
+            console.log('🚀 GAME LOADED');
+        }
 
+        async function checkAuth() {
+            console.log('🔑 Checking session');
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            
+            if (session?.user) {
+                isLoggedIn = true;
+                pendingUserId = session.user.id;
+                updateAuthUI(session.user);
+                
+                const restored = restoreGameState();
+                
+                if (restored) {
+                    if (currentRound >= MAX_ROUNDS || remainingLocations.length === 0) {
+                        showEndScreen();
+                    }
+                    return;
+                }
 
-
-
-        // MRUN GAME)
-
-
-
-
-async function startGame() {
-    console.log('🚀 GAME STARTING');
-
-    initMap();
-    remainingLocations = [...LOCATIONS];
-
-    bgMusic = document.getElementById('bg-music');
-    bgMusic.volume = 0.25;
-    bgMusic.play().catch(() => {});
-    document.getElementById('mute-btn').addEventListener('click', toggleMusic);
-
-    const { createClient } = supabase;
-    supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    loadHighscores();
-
-    mapInstance.on('click', function autoStart() {
-        if (bgMusic.paused && !isMusicMuted) bgMusic.play().catch(() => {});
-        mapInstance.off('click', autoStart);
-    });
-
-    const panoramaContainer = document.getElementById('panorama-container');
-    panoramaContainer.addEventListener('click', openFullscreen);
-    panoramaContainer.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 1) openFullscreen();
-    }, { passive: true });
-
-    setTimeout(startNewRound, 600);
-
-    window.addEventListener('resize', () => {
-        if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
-    });
-
-    console.log('🚀 GAME LOADED');
-}
-
-async function checkAuth() {
-    console.log('🔑 Checking session');
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    
-    if (session?.user) {
-        isLoggedIn = true;
-        pendingUserId = session.user.id;
-        updateAuthUI(session.user);
-        
-        const restored = restoreGameState();
-        
-        if (restored) {
-            // If we were at the end of the game when we logged in
-            if (currentRound >= MAX_ROUNDS || remainingLocations.length === 0) {
-                showEndScreen();
+                const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
+                if (pendingScoreStr) {
+                    pendingScore = parseInt(pendingScoreStr);
+                    localStorage.removeItem('pendingEvrimaScore');
+                    showEndScreen();
+                }
             }
-            return;
         }
 
-        // Fallback for old pending score
-        const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
-        if (pendingScoreStr) {
-            pendingScore = parseInt(pendingScoreStr);
-            localStorage.removeItem('pendingEvrimaScore');
-            showEndScreen();
+        async function initializeGame() {
+            await startGame();
+            await checkAuth();
+            
+            supabaseClient.auth.onAuthStateChange((event, session) => {
+                if (event === 'SIGNED_IN' && session) {
+                    isLoggedIn = true;
+                    pendingUserId = session.user.id;
+                    updateAuthUI(session.user);
+                } else if (event === 'SIGNED_OUT') {
+                    isLoggedIn = false;
+                    currentUser = null;
+                    document.getElementById('auth-indicator').style.display = 'none';
+                }
+            });
         }
-    }
-}
 
-async function initializeGame() {
-    await startGame();
-    await checkAuth();
-    
-    // Real-time auth listener (so the indicator updates instantly)
-    supabaseClient.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-            isLoggedIn = true;
-            pendingUserId = session.user.id;
-            updateAuthUI(session.user);
-        } else if (event === 'SIGNED_OUT') {
-            isLoggedIn = false;
-            currentUser = null;
-            document.getElementById('auth-indicator').style.display = 'none';
-        }
-    });
-}
-
-initializeGame();
+        initializeGame();
     </script>
 </body>
 </html>
