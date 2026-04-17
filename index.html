@@ -819,6 +819,7 @@
             if (event.data && event.data.type === 'SUPABASE_AUTH_CALLBACK') {
                 const pendingScoreStr = localStorage.getItem('pendingEvrimaScore');
                 if (event.data.success && event.data.session && pendingScoreStr) {
+                    console.log('%c✅ [DEBUG] Successful handshake - setting pending data', 'color:#0f0');
                     pendingUserId = event.data.session.user.id;
                     pendingScore = parseInt(pendingScoreStr);
                     localStorage.removeItem('pendingEvrimaScore');
@@ -826,6 +827,7 @@
                     document.getElementById('name-prompt-section').style.display = 'block';
                     document.getElementById('player-name-input').focus();
                 } else {
+                    console.log('%c❌ [DEBUG] Handshake failed', 'color:#f00');
                     localStorage.removeItem('pendingEvrimaScore');
                     alert('Login failed or was cancelled. Please try again.');
                 }
@@ -833,7 +835,6 @@
         });
 
         window.onload = async function () {
-            // EXACT 1.6 POPUP CALLBACK GUARD — THIS IS WHAT MADE IT WORK
             console.log('%c🔍 [DEBUG] onload - checking if this is popup callback', 'color:#ff0');
             const isPopupCallback = window.opener !== null && (window.location.hash.includes('access_token') || window.location.search.includes('code=') || window.location.search.includes('error='));
             if (isPopupCallback) {
@@ -842,19 +843,21 @@
                 supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 try {
                     const { data: { session } } = await supabaseClient.auth.getSession();
+                    console.log('%c🔄 [DEBUG] Session in popup:', 'color:#0ff', session ? 'received' : 'null');
                     if (window.opener && session) {
                         window.opener.postMessage({ type: 'SUPABASE_AUTH_CALLBACK', session: session, success: true }, '*');
                     } else if (window.opener) {
                         window.opener.postMessage({ type: 'SUPABASE_AUTH_CALLBACK', success: false }, '*');
                     }
                 } catch (err) {
+                    console.log('%c❌ [DEBUG] Error in popup callback', 'color:#f00', err);
                     if (window.opener) window.opener.postMessage({ type: 'SUPABASE_AUTH_CALLBACK', success: false }, '*');
                 }
-                setTimeout(() => { window.close(); }, 800);
+                setTimeout(() => { window.close(); }, 1200); // longer delay for handshake
                 return;
             }
 
-            // Normal game load continues below
+            // Normal game load
             console.log('%c🚀 [DEBUG] Normal game load - starting 1.6 logic', 'color:#0f0');
             initMap();
             remainingLocations = [...LOCATIONS];
@@ -866,7 +869,7 @@
             const { createClient } = supabase;
             supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // Persistent login (added safely after popup guard)
+            // Persistent login (only on main page)
             console.log('%c🔑 [DEBUG] Checking persistent login', 'color:#ff0');
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
@@ -892,7 +895,7 @@
                 if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 250);
             });
 
-            console.log('🚀 GAME LOADED — EXACT 1.6 AUTH RESTORED + modern mobile UI');
+            console.log('🚀 GAME LOADED — EXACT 1.6 AUTH + modern mobile UI + improved handshake');
         };
     </script>
 </body>
