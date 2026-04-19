@@ -499,10 +499,11 @@ export default function HubPage() {
           text-shadow: 0 0 12px #0f0;
         }
 
-        /* Desktop: Advanced stats scroll internally so center card doesn't move */
+        /* Desktop fix: Advanced stats scroll internally - nothing moves */
         .advanced-container {
-          max-height: 420px;
+          max-height: 460px; /* Adjust if needed */
           overflow-y: auto;
+          padding-right: 8px;
         }
 
         /* MOBILE */
@@ -596,7 +597,7 @@ export default function HubPage() {
             </div>
           </div>
 
-          {/* CENTER - SELECTED DINO */}
+          {/* CENTER - SELECTED DINO - FIXED HEIGHT, NO EXPANSION */}
           <div className="panel centerCard" style={{ flex: '1 1 auto', minHeight: '260px' }}>
             {selected ? (
               <>
