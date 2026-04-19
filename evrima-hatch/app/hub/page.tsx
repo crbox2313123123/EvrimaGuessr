@@ -118,12 +118,10 @@ export default function HubPage() {
     setCurrentUser(session.user);
     setUserId(session.user.id);
     
-    const dinoData = await loadDinos(session.user.id);   // ← pass it directly here
+    const dinoData = await loadDinos(session.user.id);
     await loadPlayerState(dinoData);
   };
 
-  // ─────────────────────────────────────────────────────────────
-  // SERVER-SIDE DINO BANK – only show user's own dinos
   const loadDinos = async (currentUserId?: string) => {
     const uid = currentUserId || userId;
     if (!uid) return [];
@@ -206,7 +204,6 @@ export default function HubPage() {
     await saveSelectedDino(dino.id);
   };
 
-  // Polling for the currently selected dino
   useEffect(() => {
     if (!selected?.id) return;
 
@@ -228,7 +225,6 @@ export default function HubPage() {
     return () => clearInterval(interval);
   }, [selected?.id]);
 
-  // Polling for the full Dino Bank list
   useEffect(() => {
     if (!userId) return;
     
@@ -550,16 +546,18 @@ export default function HubPage() {
             gap: 6px; 
             font-size: 0.78rem; 
           }
+          /* Footer buttons: vertical stack on mobile only */
           .footer-buttons {
             flex-direction: column !important;
             gap: 12px !important;
+            padding: 16px !important;
           }
           .btn { 
-            padding: 11px 18px; 
+            padding: 12px 18px; 
             font-size: 0.95rem; 
             width: 100%;
           }
-          /* Dino Bank on mobile: small height (≈20% of screen) so only 1-2 dinos visible */
+          /* Dino Bank on mobile: small height */
           .dino-bank-panel {
             max-height: 240px;
           }
@@ -581,7 +579,7 @@ export default function HubPage() {
         </header>
 
         <div className="main">
-          {/* LEFT - DINO BANK (now fully server-side filtered) */}
+          {/* LEFT - DINO BANK */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minHeight: 0 }}>
             <div className="panel dino-bank-panel">
               <div style={{ padding: '14px 18px', background: '#0a0a1f', borderBottom: '3px solid #0f0', fontSize: '0.95rem', textShadow: '0 0 8px #0f0' }}>DINO BANK</div>
@@ -725,7 +723,7 @@ export default function HubPage() {
           </div>
         </div>
 
-        {/* FOOTER */}
+        {/* FOOTER - horizontal on desktop, vertical on mobile */}
         <div className="panel footer-buttons" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '10px', borderTop: '4px solid #0f0', flexWrap: 'wrap', padding: '12px' }}>
           <button className="btn" onClick={handleGenerateEgg} disabled={actionLoading}>NEW EGG</button>
           <button className="btn yellow" onClick={handleServerTick} disabled={actionLoading}>SERVER TICK</button>
