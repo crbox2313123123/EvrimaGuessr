@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import { leaveMap } from '../../server/actions';
@@ -139,6 +139,14 @@ export default function MapPage() {
     channelRef.current = channel;
   };
 
+  // Re-run sprite update when ownPosition changes
+  useEffect(() => {
+    if (ownPosition) {
+      console.log("🔄 ownPosition changed - re-running sprite update");
+      updateDinoSprites(players);
+    }
+  }, [ownPosition]);
+
   useEffect(() => {
     if (!pixiContainerRef.current || !instanceId) return;
     if (appRef.current) return;
@@ -234,11 +242,10 @@ export default function MapPage() {
     const viewport = viewportRef.current;
 
     console.log(`🔄 Updating sprites - nearby: ${nearbyData.length}`);
-    console.log("Own dino state check → selectedDino:", !!selectedDino, "currentDinoId:", !!currentDinoId, "ownPosition:", ownPosition ? ownPosition : null);
+    console.log("Own dino state check → selectedDino:", !!selectedDino, "currentDinoId:", !!currentDinoId, "ownPosition:", ownPosition);
 
-    // Own dino - more robust check
     if (selectedDino && currentDinoId) {
-      console.log("✅ Own dino data exists - proceeding with creation/update");
+      console.log("✅ Own dino data exists - proceeding");
 
       let sprite = spritesRef.current.get(currentDinoId);
       if (!sprite) {
@@ -259,13 +266,13 @@ export default function MapPage() {
         sprite.y = ownPosition.y;
         console.log(`📍 Own dino position updated to (${ownPosition.x}, ${ownPosition.y})`);
       } else {
-        console.log("⚠️ Own position not yet available - sprite created but position pending");
+        console.log("⚠️ Own position not yet available - sprite created at default position");
       }
     } else {
       console.log("❌ Own dino block skipped - missing selectedDino or currentDinoId");
     }
 
-    // Nearby (kept for future)
+    // Nearby
     nearbyData.forEach((item) => {
       const dinoId = item.dino_id.toString();
       let sprite = spritesRef.current.get(dinoId);
