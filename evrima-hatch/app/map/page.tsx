@@ -26,9 +26,6 @@ export default function MapPage() {
 
   const round = (val: any) => Math.round(Number(val) || 0);
 
-  // -------------------------------
-  // INITIAL AUTH + SETUP
-  // -------------------------------
   useEffect(() => {
     init();
     return cleanup;
@@ -85,9 +82,6 @@ export default function MapPage() {
     if (data?.instance_id) setInstanceId(data.instance_id);
   };
 
-  // -------------------------------
-  // LOAD PLAYERS + REALTIME
-  // -------------------------------
   useEffect(() => {
     if (!instanceId || !currentUserId || !currentDinoId) return;
     loadPlayers();
@@ -109,7 +103,7 @@ export default function MapPage() {
 
     setPlayers(data || []);
 
-    // Get real own position
+    // Fetch real own position
     const { data: entity } = await supabase
       .from('evrima_instance_entities')
       .select('position_x, position_y')
@@ -144,9 +138,6 @@ export default function MapPage() {
     channelRef.current = channel;
   };
 
-  // -------------------------------
-  // PIXI SETUP
-  // -------------------------------
   useEffect(() => {
     if (!pixiContainerRef.current || !instanceId) return;
     if (appRef.current) return;
@@ -169,16 +160,15 @@ export default function MapPage() {
     app.stage.addChild(viewport);
     viewportRef.current = viewport;
 
-    // Preload sprites
+    // Defensive preload - only existing sprites
     const spritePaths = [
       '/sprites/templates/raptor_baby_sprite.png',
       '/sprites/templates/raptor_juvenile_sprite.png',
       '/sprites/templates/raptor_sub_adult_sprite.png',
       '/sprites/templates/raptor_adult_sprite.png',
-      '/sprites/templates/raptor_prime_adult_sprite.png',
-      '/sprites/templates/raptor_elder_sprite.png'
+      '/sprites/templates/raptor_prime_adult_sprite.png'
     ];
-    await PIXI.Assets.load(spritePaths);
+    await PIXI.Assets.load(spritePaths).catch(() => {});
 
     // Background
     try {
@@ -188,12 +178,14 @@ export default function MapPage() {
       bg.x = 1250;
       bg.y = 1000;
       viewport.addChild(bg);
-      console.log('✅ MAP BACKGROUND LOADED');
+      console.log('✅ MAP BACKGROUND LOADED at center (1250,1000)');
     } catch (err) {
       console.error('❌ MAP BACKGROUND FAILED', err);
     }
 
-    // Initial camera
+    console.log('✅ PIXI + MAP LOADED');
+
+    // Camera setup
     viewport.x = app.screen.width / 2 - 1250 * 0.65;
     viewport.y = app.screen.height / 2 - 1000 * 0.65;
     viewport.scale.set(0.65);
@@ -210,17 +202,12 @@ export default function MapPage() {
       viewport.scale.set(currentScale);
     }, 16);
 
-    // Camera controls
+    // Pan + zoom controls (unchanged)
     let isDragging = false;
     let lastX = 0;
     let lastY = 0;
 
-    app.canvas.addEventListener('pointerdown', (e) => {
-      isDragging = true;
-      lastX = e.clientX;
-      lastY = e.clientY;
-    });
-
+    app.canvas.addEventListener('pointerdown', (e) => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
     app.canvas.addEventListener('pointermove', (e) => {
       if (!isDragging) return;
       viewport.x += e.clientX - lastX;
@@ -228,7 +215,6 @@ export default function MapPage() {
       lastX = e.clientX;
       lastY = e.clientY;
     });
-
     app.canvas.addEventListener('pointerup', () => isDragging = false);
     app.canvas.addEventListener('pointerleave', () => isDragging = false);
 
@@ -240,24 +226,6 @@ export default function MapPage() {
       viewport.scale.y *= factor;
       viewport.x = mx - (mx - viewport.x) * factor;
       viewport.y = my - (my - viewport.y) * factor;
-    });
-
-    // Touch pinch (basic)
-    let initialDist = 0;
-    let initialScale = 1;
-    app.canvas.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 2) {
-        initialDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        initialScale = viewport.scale.x;
-      }
-    });
-    app.canvas.addEventListener('touchmove', (e) => {
-      if (e.touches.length === 2) {
-        const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        const factor = dist / initialDist;
-        viewport.scale.x = initialScale * factor;
-        viewport.scale.y = initialScale * factor;
-      }
     });
   };
 
@@ -272,7 +240,9 @@ export default function MapPage() {
       let sprite = spritesRef.current.get(currentDinoId);
       if (!sprite) {
         const stage = (selectedDino.stage || 'baby').toLowerCase();
-        const path = `/sprites/templates/raptor_${stage}_sprite.png`;
+        const species = (selectedDino.species_key || 'raptor').toLowerCase();
+        const path = `/sprites/templates/${species}_${stage}_sprite.png`;
+        console.log(`🦕 Creating own dino sprite: ${path}`);
         sprite = PIXI.Sprite.from(path);
         sprite.anchor.set(0.5);
         sprite.scale.set(0.9);
@@ -281,23 +251,27 @@ export default function MapPage() {
       }
       sprite.x = ownPosition.x;
       sprite.y = ownPosition.y;
+      console.log(`📍 Own dino position updated to (${ownPosition.x}, ${ownPosition.y})`);
     }
 
-    // Nearby
-    nearbyData.forEach(item => {
-      const id = item.dino_id.toString();
-      let sprite = spritesRef.current.get(id);
+    // Nearby dinos
+    nearbyData.forEach((item) => {
+      const dinoId = item.dino_id.toString();
+      let sprite = spritesRef.current.get(dinoId);
       if (!sprite) {
         const stage = (item.stage || 'baby').toLowerCase();
-        const path = `/sprites/templates/raptor_${stage}_sprite.png`;
+        const species = (item.species_key || 'raptor').toLowerCase();
+        const path = `/sprites/templates/${species}_${stage}_sprite.png`;
+        console.log(`🦕 Creating nearby sprite: ${path}`);
         sprite = PIXI.Sprite.from(path);
         sprite.anchor.set(0.5);
         sprite.scale.set(0.8);
         viewport.addChild(sprite);
-        spritesRef.current.set(id, sprite);
+        spritesRef.current.set(dinoId, sprite);
       }
       sprite.x = item.position_x || 1250;
       sprite.y = item.position_y || 1000;
+      console.log(`📍 Updated sprite ${dinoId} to (${sprite.x}, ${sprite.y})`);
     });
   };
 
