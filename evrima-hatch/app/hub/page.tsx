@@ -140,6 +140,8 @@ export default function HubPage() {
       return;
     }
     
+    console.log('📡 DEBUG: Loading player state for user:', userId);
+    
     const { data: state } = await supabase
       .from('evrima_player_state')
       .select('selected_dino_id')
@@ -147,6 +149,8 @@ export default function HubPage() {
       .single();
 
     if (state?.selected_dino_id) {
+      console.log('✅ DEBUG: Found saved selection:', state.selected_dino_id);
+      
       const { data: dino } = await supabase
         .from('evrima_player_dinos')
         .select('*')
@@ -154,11 +158,13 @@ export default function HubPage() {
         .single();
 
       if (dino) {
+        console.log('🎯 DEBUG: Setting selected dino from DB →', dino.dino_name, '(', dino.id, ')');
         setSelected(dino);
         selectedIdRef.current = dino.id;
       }
     } else if (freshDinos.length > 0) {
       const newest = freshDinos[0];
+      console.log('🆕 DEBUG: No saved selection → auto-selecting & saving:', newest.dino_name);
       setSelected(newest);
       selectedIdRef.current = newest.id;
       await saveSelectedDino(newest.id);
@@ -170,6 +176,8 @@ export default function HubPage() {
   const saveSelectedDino = async (dinoId: string) => {
     if (!userId) return;
     
+    console.log('💾 DEBUG: Saving selection to evrima_player_state → dinoId:', dinoId);
+    
     const { error } = await supabase
       .from('evrima_player_state')
       .upsert({
@@ -177,14 +185,22 @@ export default function HubPage() {
         selected_dino_id: dinoId,
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' });
+
+    if (error) {
+      console.error('❌ Failed to save selection:', error);
+    } else {
+      console.log('✅ DEBUG: Selection saved successfully');
+    }
   };
 
   const handleSelectDino = async (dino: Dino) => {
+    console.log('🖱️ DEBUG: User clicked dino →', dino.dino_name, '(', dino.id, ')');
     setSelected(dino);
     selectedIdRef.current = dino.id;
     await saveSelectedDino(dino.id);
   };
 
+  // Polling for the currently selected dino
   useEffect(() => {
     if (!selected?.id) return;
 
@@ -206,6 +222,7 @@ export default function HubPage() {
     return () => clearInterval(interval);
   }, [selected?.id]);
 
+  // Polling for the full Dino Bank list
   useEffect(() => {
     const interval = setInterval(() => {
       loadDinos();
@@ -285,10 +302,18 @@ export default function HubPage() {
     }
   };
 
-  const realMaxHp = selected?.current_stats?.max_health ? round(selected.current_stats.max_health) : 0;
-  const realCurrentHp = selected?.current_stats?.current_health ? round(selected.current_stats.current_health) : 0;
-  const realWeight = selected?.current_stats?.weight ? round(selected.current_stats.weight) : 0;
-  const realCombatPower = selected?.current_stats?.combat_power ? round(selected.current_stats.combat_power) : 0;
+  const realMaxHp = selected?.current_stats?.max_health 
+    ? round(selected.current_stats.max_health) 
+    : 0;
+  const realCurrentHp = selected?.current_stats?.current_health 
+    ? round(selected.current_stats.current_health) 
+    : 0;
+  const realWeight = selected?.current_stats?.weight 
+    ? round(selected.current_stats.weight) 
+    : 0;
+  const realCombatPower = selected?.current_stats?.combat_power 
+    ? round(selected.current_stats.combat_power) 
+    : 0;
 
   if (loading) return <div className="loading">LOADING...</div>;
 
@@ -298,12 +323,14 @@ export default function HubPage() {
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
         html, body {
           height: 100%;
-          overflow: auto; /* Allow full page scroll on mobile */
+          overflow: auto; /* Full scroll on mobile */
           background: #0a0a1f;
           color: #0f0;
           font-family: 'Press Start 2P', system-ui;
         }
         * { box-sizing: border-box; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #0f0; border-radius: 20px; }
 
         .root { 
           min-height: 100vh; 
@@ -316,6 +343,7 @@ export default function HubPage() {
           grid-template-columns: 340px 0.7fr 420px;
           gap: 24px;
           padding: 24px 40px 24px 110px;
+          min-height: 0;
           background: #05050f;
         }
 
@@ -421,6 +449,8 @@ export default function HubPage() {
           text-align: right;
           color: #0ff;
           white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .stat-row span:last-child {
           color: #ff0;
@@ -472,7 +502,7 @@ export default function HubPage() {
         /* ================ MOBILE IMPROVEMENTS ================ */
         @media (max-width: 900px) {
           .root { 
-            grid-template-rows: 70px auto 80px; /* Auto height for scrollable content */
+            grid-template-rows: 70px auto 80px; 
             min-height: 100vh;
           }
           .main {
@@ -481,36 +511,46 @@ export default function HubPage() {
             padding: 16px 12px;
           }
           .panel {
-            border-width: 3px;
             min-height: auto;
+            border-width: 3px;
           }
-          .dino-bank-panel {
-            min-height: 180px;
-            max-height: 320px;
+          .dinoItem { 
+            font-size: 0.88rem; 
+            padding: 12px 14px; 
           }
-          .centerCard {
-            min-height: 240px;
+          .centerCard { 
+            padding: 16px; 
+            font-size: 1rem; 
+            min-height: 220px;
           }
           .dinoIcon { font-size: 72px; }
           .stat-row { 
             grid-template-columns: 1fr; 
             gap: 6px; 
+            font-size: 0.78rem; 
+          }
+          /* Footer buttons stack vertically on mobile */
+          .footer-buttons {
+            flex-direction: column !important;
+            gap: 12px !important;
+            padding: 12px;
           }
           .btn { 
             padding: 11px 18px; 
             font-size: 0.95rem; 
-            flex: 1 1 auto;
-            min-width: 140px;
+            width: 100%;
+          }
+          /* Dino Bank */
+          .dino-bank-panel {
+            min-height: 180px;
+            max-height: 320px;
           }
           .scroll { padding: 10px; }
-          /* More Options now sits under Live Stats */
-          .more-options-mobile {
-            margin-top: 16px;
-          }
         }
 
         @media (max-width: 600px) {
           .main { padding: 12px 8px; }
+          .header-text { font-size: 1rem; }
         }
       `}</style>
 
@@ -546,10 +586,16 @@ export default function HubPage() {
                 ))}
               </div>
             </div>
+
+            {/* MORE OPTIONS - smaller and below Dino Bank on mobile (but will be moved in final placement) */}
+            <div className="panel" style={{ height: '100px', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', textShadow: '0 0 8px #0f0' }}>
+              MORE OPTIONS<br/>
+              <span style={{ fontSize: '0.7rem', opacity: 0.6 }}>COMING SOON</span>
+            </div>
           </div>
 
           {/* CENTER - SELECTED DINO */}
-          <div className="panel centerCard" style={{ flex: '1 1 auto' }}>
+          <div className="panel centerCard" style={{ flex: '1 1 auto', minHeight: '260px' }}>
             {selected ? (
               <>
                 <div className="dinoIcon">{selected.stage === 'egg' ? '🪺' : '🦕'}</div>
@@ -568,21 +614,20 @@ export default function HubPage() {
             )}
           </div>
 
-          {/* RIGHT - LIVE STATS + MORE OPTIONS */}
+          {/* RIGHT - LIVE STATS + MORE OPTIONS BELOW IT */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div className="panel" style={{ flex: '1 1 auto' }}>
               <div style={{ padding: '14px 18px', background: '#0a0a1f', borderBottom: '3px solid #0f0', fontSize: '0.95rem', textShadow: '0 0 8px #0f0' }}>LIVE STATS</div>
               <div className="scroll" style={{ padding: '14px 18px' }}>
-                {/* SURVIVAL + PHYSICAL sections unchanged */}
                 <div className="section-header">SURVIVAL</div>
                 <div className="stat-label"><span>HUNGER</span><span style={{ color: '#ff0' }}>{round(selected?.hunger)}</span></div>
-                <div className="progress-container"><div className="progress-bar" style={{ width: `${round(selected?.hunger)}%`, background: '#ff0' }} /></div>
+                <div className="progress-container"><div className="progress-bar" style={{ width: `${round(selected?.hunger)}%`, background: '#ff0', boxShadow: '0 0 8px #ff0' }} /></div>
                 <div className="stat-label"><span>THIRST</span><span style={{ color: '#0ff' }}>{round(selected?.thirst)}</span></div>
-                <div className="progress-container"><div className="progress-bar" style={{ width: `${round(selected?.thirst)}%`, background: '#0ff' }} /></div>
+                <div className="progress-container"><div className="progress-bar" style={{ width: `${round(selected?.thirst)}%`, background: '#0ff', boxShadow: '0 0 8px #0ff' }} /></div>
                 <div className="stat-label"><span>STAMINA</span><span style={{ color: '#0f0' }}>{round(selected?.stamina)}</span></div>
-                <div className="progress-container"><div className="progress-bar" style={{ width: `${round(selected?.stamina)}%`, background: '#0f0' }} /></div>
+                <div className="progress-container"><div className="progress-bar" style={{ width: `${round(selected?.stamina)}%`, background: '#0f0', boxShadow: '0 0 8px #0f0' }} /></div>
                 <div className="stat-label"><span>FATIGUE</span><span style={{ color: '#f44' }}>{round(selected?.fatigue)}</span></div>
-                <div className="progress-container"><div className="progress-bar" style={{ width: `${round(selected?.fatigue)}%`, background: '#f44' }} /></div>
+                <div className="progress-container"><div className="progress-bar" style={{ width: `${round(selected?.fatigue)}%`, background: '#f44', boxShadow: '0 0 8px #f44' }} /></div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '18px', fontSize: '0.82rem' }}>
                   <div><span style={{color:'#f44'}}>BLEEDING:</span> {round(selected?.bleeding)}</div>
@@ -607,27 +652,77 @@ export default function HubPage() {
 
                 {showAdvanced && (
                   <div style={{ marginTop: '12px' }}>
-                    {/* All advanced stats sections unchanged - they push content down when expanded */}
                     <div className="section-header">ADVANCED STATS</div>
-                    {/* ... (all your advanced stat rows remain exactly as before) ... */}
+
                     <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '8px' }}>EMOTIONS &amp; DRIVES</div>
                     <div className="stat-row"><span>AGGRESSION</span><span>{round(selected?.aggression)}</span></div>
-                    {/* ... rest of advanced stats exactly as in your code ... */}
+                    <div className="stat-row"><span>FEAR</span><span>{round(selected?.fear)}</span></div>
+                    <div className="stat-row"><span>STRESS</span><span>{round(selected?.stress)}</span></div>
+                    <div className="stat-row"><span>CONFIDENCE</span><span>{round(selected?.confidence)}</span></div>
+                    <div className="stat-row"><span>COMFORT</span><span>{round(selected?.comfort)}</span></div>
+                    <div className="stat-row"><span>CURIOSITY</span><span>{round(selected?.curiosity)}</span></div>
+                    <div className="stat-row"><span>FRUSTRATION</span><span>{round(selected?.frustration)}</span></div>
+                    <div className="stat-row"><span>BOREDOM</span><span>{round(selected?.boredom)}</span></div>
+                    <div className="stat-row"><span>ALERTNESS</span><span>{round(selected?.alertness)}</span></div>
+
+                    <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>BEHAVIORAL TRAITS</div>
+                    <div className="stat-row"><span>BOLDNESS</span><span>{round(selected?.boldness)}</span></div>
+                    <div className="stat-row"><span>PATIENCE</span><span>{round(selected?.patience)}</span></div>
+                    <div className="stat-row"><span>INTELLIGENCE</span><span>{round(selected?.intelligence)}</span></div>
+                    <div className="stat-row"><span>LOYALTY</span><span>{round(selected?.loyalty)}</span></div>
+                    <div className="stat-row"><span>OPPORTUNISM</span><span>{round(selected?.opportunism)}</span></div>
+                    <div className="stat-row"><span>CAUTION</span><span>{round(selected?.caution)}</span></div>
+
+                    <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>SOCIAL GENETICS</div>
+                    <div className="stat-row"><span>PACK AFFINITY</span><span>{round(selected?.pack_affinity)}</span></div>
+                    <div className="stat-row"><span>SUBMISSION TENDENCY</span><span>{round(selected?.submission_tendency)}</span></div>
+                    <div className="stat-row"><span>LEADERSHIP</span><span>{round(selected?.leadership)}</span></div>
+                    <div className="stat-row"><span>EMPATHY</span><span>{round(selected?.empathy)}</span></div>
+                    <div className="stat-row"><span>TOLERANCE</span><span>{round(selected?.tolerance)}</span></div>
+
+                    <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>COMBAT STYLE</div>
+                    <div className="stat-row"><span>FEROCITY</span><span>{round(selected?.ferocity)}</span></div>
+                    <div className="stat-row"><span>DEFENSIVENESS</span><span>{round(selected?.defensiveness)}</span></div>
+                    <div className="stat-row"><span>TARGET FOCUS</span><span>{round(selected?.target_focus)}</span></div>
+                    <div className="stat-row"><span>AMBUSH TENDENCY</span><span>{round(selected?.ambush_tendency)}</span></div>
+                    <div className="stat-row"><span>RISK ASSESSMENT</span><span>{round(selected?.risk_assessment)}</span></div>
+
+                    <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>PERCEPTION</div>
+                    <div className="stat-row"><span>VISION RANGE</span><span>{round(selected?.vision_range)}</span></div>
+                    <div className="stat-row"><span>NIGHT VISION</span><span>{round(selected?.night_vision)}</span></div>
+                    <div className="stat-row"><span>SMELL SENSITIVITY</span><span>{round(selected?.smell_sensitivity)}</span></div>
+                    <div className="stat-row"><span>HEARING SENSITIVITY</span><span>{round(selected?.hearing_sensitivity)}</span></div>
+
+                    <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>URGES</div>
+                    <div className="stat-row"><span>HUNGER URGE</span><span>{round(selected?.hunger_urge)}</span></div>
+                    <div className="stat-row"><span>THIRST URGE</span><span>{round(selected?.thirst_urge)}</span></div>
+                    <div className="stat-row"><span>REST URGE</span><span>{round(selected?.rest_urge)}</span></div>
+                    <div className="stat-row"><span>SAFETY URGE</span><span>{round(selected?.safety_urge)}</span></div>
+                    <div className="stat-row"><span>SOCIAL URGE</span><span>{round(selected?.social_urge)}</span></div>
+                    <div className="stat-row"><span>ESCAPE URGE</span><span>{round(selected?.escape_urge)}</span></div>
+
+                    <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>STATE &amp; MISC</div>
+                    <div className="stat-row"><span>STANCE</span><span>{selected?.stance || 'neutral'}</span></div>
+                    <div className="stat-row"><span>GOAL PRIORITY</span><span>{round(selected?.goal_priority)}</span></div>
+                    <div className="stat-row"><span>ENGAGED</span><span>{selected?.engaged ? 'YES' : 'NO'}</span></div>
+                    <div className="stat-row"><span>REACTIVITY</span><span>{round(selected?.reactivity)}</span></div>
+                    <div className="stat-row"><span>COMMITMENT</span><span>{round(selected?.commitment)}</span></div>
+                    <div className="stat-row"><span>THREAT LEVEL</span><span>{round(selected?.threat_level)}</span></div>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* MORE OPTIONS - Now under Live Stats on mobile, pushed by advanced stats */}
-            <div className="panel more-options-mobile" style={{ alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', textShadow: '0 0 8px #0f0', padding: '20px 0' }}>
+            {/* MORE OPTIONS - placed under Live Stats on mobile */}
+            <div className="panel" style={{ alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', textShadow: '0 0 8px #0f0', padding: '20px 0' }}>
               MORE OPTIONS<br/>
               <span style={{ fontSize: '0.7rem', opacity: 0.6 }}>COMING SOON</span>
             </div>
           </div>
         </div>
 
-        {/* FOOTER - Always reachable thanks to scrollable root */}
-        <div className="panel" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '10px', borderTop: '4px solid #0f0', flexWrap: 'wrap', padding: '12px' }}>
+        {/* FOOTER - buttons stacked vertically on mobile */}
+        <div className="panel footer-buttons" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '10px', borderTop: '4px solid #0f0', flexWrap: 'wrap', padding: '12px' }}>
           <button className="btn" onClick={handleGenerateEgg} disabled={actionLoading}>NEW EGG</button>
           <button className="btn yellow" onClick={handleServerTick} disabled={actionLoading}>SERVER TICK</button>
           <button className="btn blue" onClick={handleRecalculate} disabled={actionLoading}>RECALC STATS</button>
