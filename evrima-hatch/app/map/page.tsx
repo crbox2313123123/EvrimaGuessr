@@ -126,7 +126,7 @@ export default function MapPage() {
     appRef.current = app;
 
     // Background map (replace with your actual image path)
-    const bg = PIXI.Sprite.from('/public/islemap.png'); // ← change this path to your image
+    const bg = PIXI.Sprite.from('/islemap.png'); // ← change this path to your image
     bg.width = 2500;
     bg.height = 2000;
     app.stage.addChild(bg);
