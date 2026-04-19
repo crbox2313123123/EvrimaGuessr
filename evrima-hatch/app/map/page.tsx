@@ -161,7 +161,7 @@ export default function MapPage() {
     container.appendChild(app.canvas);
     appRef.current = app;
 
-    // Viewport container for pan/zoom
+    // Viewport for camera control
     const viewport = new PIXI.Container();
     app.stage.addChild(viewport);
 
@@ -216,7 +216,7 @@ export default function MapPage() {
       viewport.y = mouseY - (mouseY - viewport.y) * scaleFactor;
     });
 
-    // Mobile pinch zoom support (basic)
+    // Mobile pinch zoom
     let initialDistance = 0;
     let initialScale = 1;
 
@@ -241,18 +241,66 @@ export default function MapPage() {
         viewport.scale.y = initialScale * scaleFactor;
       }
     });
+
+    // Initial camera setup: center on player's own dino + smooth zoom-in
+    if (selectedDino && currentDinoId) {
+      // Wait a moment for position data to load, then center
+      setTimeout(() => {
+        const ownSprite = spritesRef.current.get(currentDinoId);
+        if (ownSprite) {
+          const targetX = ownSprite.x;
+          const targetY = ownSprite.y;
+
+          // Start at 50% zoom, centered on player
+          viewport.scale.set(0.5);
+          viewport.x = app.screen.width / 2 - targetX * 0.5;
+          viewport.y = app.screen.height / 2 - targetY * 0.5;
+
+          // Smooth zoom-in to comfortable level
+          let currentScale = 0.5;
+          const targetScale = 0.15; // ~15% of full map size - comfortable view
+
+          const zoomInterval = setInterval(() => {
+            currentScale = currentScale * 0.92 + targetScale * 0.08; // smooth lerp
+            if (Math.abs(currentScale - targetScale) < 0.01) {
+              currentScale = targetScale;
+              clearInterval(zoomInterval);
+            }
+            viewport.scale.set(currentScale);
+          }, 16);
+        }
+      }, 800);
+    }
   };
 
   const updateDinoSprites = (nearbyData: any[]) => {
     if (!appRef.current) return;
     const app = appRef.current;
 
+    // Always ensure our own dino is rendered
+    if (selectedDino && currentDinoId) {
+      let ownSprite = spritesRef.current.get(currentDinoId);
+      if (!ownSprite) {
+        ownSprite = PIXI.Sprite.from(`/sprites/templates/raptor_${selectedDino.stage || 'baby'}_sprite.png`);
+        ownSprite.anchor.set(0.5);
+        ownSprite.scale.set(0.8);
+        app.stage.addChild(ownSprite);
+        spritesRef.current.set(currentDinoId, ownSprite);
+      }
+      // Update own dino position if available from selectedDino
+      if (selectedDino.position_x !== undefined) {
+        ownSprite.x = selectedDino.position_x;
+        ownSprite.y = selectedDino.position_y;
+      }
+    }
+
+    // Update nearby players
     nearbyData.forEach((item) => {
       const dinoId = item.dino_id.toString();
       let sprite = spritesRef.current.get(dinoId);
 
       if (!sprite) {
-        sprite = PIXI.Sprite.from('/sprites/templates/raptor_baby_sprite.png'); // temporary - will become dynamic
+        sprite = PIXI.Sprite.from(`/sprites/templates/raptor_${item.stage || 'baby'}_sprite.png`);
         sprite.anchor.set(0.5);
         sprite.scale.set(0.8);
         app.stage.addChild(sprite);
