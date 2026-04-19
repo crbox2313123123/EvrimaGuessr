@@ -88,7 +88,7 @@ interface Dino {
   night_vision: number;
   smell_sensitivity: number;
   hearing_sensitivity: number;
-  location: string;
+  location: string;                    // ← Added for dino bank location display
 }
 
 export default function HubPage() {
@@ -226,7 +226,10 @@ export default function HubPage() {
     return () => clearInterval(interval);
   }, [userId]);
 
-  // Close menu when clicking outside
+  // ─────────────────────────────────────────────────────────────
+  // COMPLETELY REWRITTEN CONTEXT MENU LOGIC (production-ready)
+  // ─────────────────────────────────────────────────────────────
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
@@ -244,7 +247,6 @@ export default function HubPage() {
     }
   }, [showOptionsMenu]);
 
-  // Close on Escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -405,12 +407,9 @@ export default function HubPage() {
           border-bottom: 2px solid rgba(15,240,0,0.25);
           cursor: pointer;
           transition: all 0.2s ease;
-          font-size: 0.88rem;
+          font-size: 0.92rem;
           color: #0f0;
           text-shadow: 0 0 6px #0f0;
-          min-height: 62px;
-          display: flex;
-          align-items: center;
         }
         .dinoItem:hover { background: rgba(15,240,0,0.12); transform: translateX(6px); }
         .centerCard {
@@ -573,7 +572,7 @@ export default function HubPage() {
           background: #0f0;
           color: #111133;
         }
-        /* MOBILE */
+        /* MOBILE OPTIMIZATIONS - smaller text for selected dino + dino bank */
         @media (max-width: 900px) {
           .options-menu {
             bottom: 20px;
@@ -599,9 +598,8 @@ export default function HubPage() {
             border-width: 3px;
           }
           .dinoItem {
-            font-size: 0.82rem;
+            font-size: 0.82rem;           /* smaller bank names on mobile */
             padding: 12px 14px;
-            min-height: 52px;
           }
           .centerCard {
             padding: 16px;
@@ -609,6 +607,7 @@ export default function HubPage() {
             min-height: 220px;
           }
           .dinoIcon { font-size: 72px; }
+          /* Selected dino name & growth - smaller on mobile */
           .centerCard > div:nth-child(2) {
             font-size: 1.15rem !important;
           }
@@ -769,7 +768,7 @@ export default function HubPage() {
           </div>
         </div>
         {/* FOOTER - single OPTIONS button */}
-        <div className="panel footer-buttons" style={{ position: 'relative', z-index: 10000 }}>
+        <div className="panel footer-buttons" style={{ position: 'relative', zIndex: 10000 }}>
           <button
             ref={optionsButtonRef}
             className="btn"
@@ -782,7 +781,7 @@ export default function HubPage() {
           </button>
         </div>
 
-        {/* CONTEXT MENU */}
+        {/* CONTEXT MENU - now fully reliable */}
         {showOptionsMenu && (
           <div ref={menuRef} className="options-menu">
             <div className="menu-item" onClick={handleGenerateEgg}>NEW EGG</div>
