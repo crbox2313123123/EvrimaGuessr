@@ -144,7 +144,7 @@ export default function MapPage() {
       console.log("🔄 ownPosition changed - re-running sprite update");
       updateDinoSprites(players);
     }
-  }, [ownPosition]);
+  }, [ownPosition, players]);
 
   useEffect(() => {
     if (!pixiContainerRef.current || !instanceId) return;
@@ -168,6 +168,7 @@ export default function MapPage() {
     app.stage.addChild(viewport);
     viewportRef.current = viewport;
 
+    // Preload sprites
     const spritePaths = [
       '/sprites/templates/raptor_baby_sprite.png',
       '/sprites/templates/raptor_juvenile_sprite.png',
@@ -177,25 +178,14 @@ export default function MapPage() {
     ];
     await PIXI.Assets.load(spritePaths).catch(() => {});
 
-    // Background added LAST so sprites are on top
-    try {
-      const texture = await PIXI.Assets.load('/islemap.png');
-      const bg = new PIXI.Sprite(texture);
-      bg.anchor.set(0.5);
-      bg.x = 1250;
-      bg.y = 1000;
-      viewport.addChild(bg);   // background last
-      console.log('✅ MAP BACKGROUND LOADED at center (1250,1000)');
-    } catch (err) {
-      console.error('❌ MAP BACKGROUND FAILED', err);
-    }
-
     console.log('✅ PIXI + MAP LOADED');
 
+    // Camera setup
     viewport.x = app.screen.width / 2 - 1250 * 0.65;
     viewport.y = app.screen.height / 2 - 1000 * 0.65;
     viewport.scale.set(0.65);
 
+    // Smooth zoom-in
     let currentScale = 0.65;
     const targetScale = 1.05;
     const zoomInterval = setInterval(() => {
@@ -207,6 +197,7 @@ export default function MapPage() {
       viewport.scale.set(currentScale);
     }, 16);
 
+    // Camera controls
     let isDragging = false;
     let lastX = 0;
     let lastY = 0;
@@ -234,11 +225,7 @@ export default function MapPage() {
   };
 
   const updateDinoSprites = (nearbyData: any[]) => {
-    if (!viewportRef.current) {
-      console.log("❌ updateDinoSprites skipped: no viewport");
-      return;
-    }
-
+    if (!viewportRef.current) return;
     const viewport = viewportRef.current;
 
     console.log(`🔄 Updating sprites - nearby: ${nearbyData.length}`);
@@ -256,10 +243,11 @@ export default function MapPage() {
 
         sprite = PIXI.Sprite.from(path);
         sprite.anchor.set(0.5);
-        sprite.scale.set(1.5); // larger for testing visibility
-        viewport.addChild(sprite);
+        sprite.scale.set(3.0);           // LARGE FOR TESTING
+        sprite.tint = 0xff0000;          // BRIGHT RED FOR TESTING
+        viewport.addChild(sprite);       // ADDED TO VIEWPORT BEFORE BACKGROUND
         spritesRef.current.set(currentDinoId, sprite);
-        console.log("✅ Own sprite added to viewport");
+        console.log("✅ Own sprite added to viewport (on top of background)");
       }
 
       if (ownPosition) {
@@ -273,7 +261,7 @@ export default function MapPage() {
       console.log("❌ Own dino block skipped");
     }
 
-    // Nearby (for future)
+    // Nearby (kept for future)
     nearbyData.forEach((item) => {
       const dinoId = item.dino_id.toString();
       let sprite = spritesRef.current.get(dinoId);
