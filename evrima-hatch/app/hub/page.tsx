@@ -516,7 +516,18 @@ export default function HubPage() {
           padding-right: 8px;
         }
 
-        /* MOBILE */
+        /* Footer defaults to horizontal on desktop */
+        .footer-buttons {
+          flex-direction: row;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          border-top: 4px solid #0f0;
+          flex-wrap: wrap;
+          padding: 12px;
+        }
+
+        /* MOBILE - force vertical stack */
         @media (max-width: 900px) {
           .root { 
             grid-template-rows: 70px auto 80px; 
@@ -546,7 +557,6 @@ export default function HubPage() {
             gap: 6px; 
             font-size: 0.78rem; 
           }
-          /* Footer: force vertical stack on mobile */
           .footer-buttons {
             flex-direction: column !important;
             gap: 12px !important;
@@ -557,7 +567,6 @@ export default function HubPage() {
             font-size: 0.95rem; 
             width: 100% !important;
           }
-          /* Dino Bank on mobile: small height */
           .dino-bank-panel {
             max-height: 240px;
           }
@@ -724,7 +733,7 @@ export default function HubPage() {
         </div>
 
         {/* FOOTER - horizontal on desktop, vertical on mobile */}
-        <div className="panel footer-buttons" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '10px', borderTop: '4px solid #0f0', flexWrap: 'wrap', padding: '12px' }}>
+        <div className="panel footer-buttons">
           <button className="btn" onClick={handleGenerateEgg} disabled={actionLoading}>NEW EGG</button>
           <button className="btn yellow" onClick={handleServerTick} disabled={actionLoading}>SERVER TICK</button>
           <button className="btn blue" onClick={handleRecalculate} disabled={actionLoading}>RECALC STATS</button>
