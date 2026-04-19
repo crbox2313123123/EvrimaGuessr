@@ -88,6 +88,7 @@ interface Dino {
   night_vision: number;
   smell_sensitivity: number;
   hearing_sensitivity: number;
+  location: string;                    // ← Added for dino bank location display
 }
 
 export default function HubPage() {
@@ -103,7 +104,7 @@ export default function HubPage() {
   const router = useRouter();
   const selectedIdRef = useRef<string | null>(null);
   const optionsButtonRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null); // ← NEW: required for proper context menu behavior
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const round = (val: any) => Math.round(Number(val) || 0);
 
@@ -229,7 +230,6 @@ export default function HubPage() {
   // COMPLETELY REWRITTEN CONTEXT MENU LOGIC (production-ready)
   // ─────────────────────────────────────────────────────────────
 
-  // Close menu when clicking outside (button OR menu itself)
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
@@ -247,7 +247,6 @@ export default function HubPage() {
     }
   }, [showOptionsMenu]);
 
-  // Close on Escape key (standard UX for menus)
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -263,7 +262,7 @@ export default function HubPage() {
 
   const handleOptionsClick = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
-    setShowOptionsMenu(prev => !prev); // functional update = more reliable
+    setShowOptionsMenu(prev => !prev);
   };
 
   const handleGenerateEgg = async () => {
@@ -525,7 +524,6 @@ export default function HubPage() {
           font-size: 1.4rem;
           text-shadow: 0 0 12px #0f0;
         }
-        /* Desktop: Both panels same height so bottoms are perfectly flush */
         .dino-bank-panel,
         .live-stats-panel {
           max-height: 680px;
@@ -536,7 +534,6 @@ export default function HubPage() {
           overflow-y: auto;
           padding-right: 8px;
         }
-        /* Footer */
         .footer-buttons {
           position: relative;
           z-index: 10000;
@@ -545,7 +542,6 @@ export default function HubPage() {
           padding: 12px;
           border-top: 4px solid #0f0;
         }
-        /* Context menu - fixed position, outside grid */
         .options-menu {
           position: fixed;
           bottom: 90px;
@@ -576,7 +572,7 @@ export default function HubPage() {
           background: #0f0;
           color: #111133;
         }
-        /* Mobile full-screen menu */
+        /* MOBILE OPTIMIZATIONS - smaller text for selected dino + dino bank */
         @media (max-width: 900px) {
           .options-menu {
             bottom: 20px;
@@ -602,7 +598,7 @@ export default function HubPage() {
             border-width: 3px;
           }
           .dinoItem {
-            font-size: 0.88rem;
+            font-size: 0.82rem;           /* smaller bank names on mobile */
             padding: 12px 14px;
           }
           .centerCard {
@@ -611,6 +607,13 @@ export default function HubPage() {
             min-height: 220px;
           }
           .dinoIcon { font-size: 72px; }
+          /* Selected dino name & growth - smaller on mobile */
+          .centerCard > div:nth-child(2) {
+            font-size: 1.15rem !important;
+          }
+          .centerCard > div:nth-child(3) {
+            font-size: 0.85rem !important;
+          }
           .stat-row {
             grid-template-columns: 1fr;
             gap: 6px;
@@ -651,7 +654,7 @@ export default function HubPage() {
                   >
                     {d.dino_name}
                     <span style={{ fontSize: '0.75rem', opacity: 0.7, float: 'right', color: '#0ff' }}>
-                      {d.stage} • {round(d.growth)}%
+                      {(d.location || 'HUB').toUpperCase()} • {d.stage} • {round(d.growth)}%
                     </span>
                   </div>
                 ))}
