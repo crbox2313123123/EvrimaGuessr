@@ -546,7 +546,7 @@ export default function HubPage() {
             gap: 6px; 
             font-size: 0.78rem; 
           }
-          /* Footer buttons: vertical stack on mobile only */
+          /* Footer: force vertical stack on mobile */
           .footer-buttons {
             flex-direction: column !important;
             gap: 12px !important;
@@ -555,7 +555,7 @@ export default function HubPage() {
           .btn { 
             padding: 12px 18px; 
             font-size: 0.95rem; 
-            width: 100%;
+            width: 100% !important;
           }
           /* Dino Bank on mobile: small height */
           .dino-bank-panel {
