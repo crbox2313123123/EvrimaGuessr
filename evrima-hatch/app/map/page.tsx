@@ -19,6 +19,7 @@ export default function MapPage() {
 
   const pixiContainerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
+  const spritesRef = useRef<Map<string, PIXI.Sprite>>(new Map());
   const channelRef = useRef<any>(null);
 
   const round = (val: any) => Math.round(Number(val) || 0);
@@ -111,6 +112,7 @@ export default function MapPage() {
     });
 
     setPlayers(data || []);
+    updateDinoSprites(data || []);
   };
 
   const setupRealtime = () => {
@@ -134,7 +136,7 @@ export default function MapPage() {
   };
 
   // -------------------------------
-  // PIXI INIT
+  // PIXI INIT + CAMERA + SPRITES
   // -------------------------------
   useEffect(() => {
     if (!pixiContainerRef.current) return;
@@ -149,7 +151,6 @@ export default function MapPage() {
     const container = pixiContainerRef.current!;
     if (!container) return;
 
-    // Initialize PixiJS v8+
     const app = new PIXI.Application();
     await app.init({
       resizeTo: container,
@@ -160,28 +161,107 @@ export default function MapPage() {
     container.appendChild(app.canvas);
     appRef.current = app;
 
-    console.log('✅ PIXI INITIALIZED');
+    // Viewport container for pan/zoom
+    const viewport = new PIXI.Container();
+    app.stage.addChild(viewport);
 
-    // Load your existing map image (keep your naming convention)
+    // Load background map
     try {
-      const texture = await PIXI.Assets.load('/islemap.png');   // your current image name
-
+      const texture = await PIXI.Assets.load('/islemap.png');
       const bg = new PIXI.Sprite(texture);
-      const scaleX = app.screen.width / bg.texture.width;
-      const scaleY = app.screen.height / bg.texture.height;
-      const scale = Math.max(scaleX, scaleY);
-
-      bg.scale.set(scale);
       bg.anchor.set(0.5);
-      bg.x = app.screen.width / 2;
-      bg.y = app.screen.height / 2;
-
-      app.stage.addChild(bg);
-
-      console.log('✅ MAP BACKGROUND LOADED');
+      bg.x = 1250;
+      bg.y = 1000;
+      viewport.addChild(bg);
     } catch (err) {
-      console.error('❌ Failed to load map background:', err);
+      console.error('❌ MAP FAILED', err);
     }
+
+    console.log('✅ PIXI + MAP LOADED');
+
+    // Camera controls (desktop + mobile)
+    let isDragging = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    app.canvas.addEventListener('pointerdown', (e) => {
+      isDragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+    });
+
+    app.canvas.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      viewport.x += dx;
+      viewport.y += dy;
+      lastX = e.clientX;
+      lastY = e.clientY;
+    });
+
+    app.canvas.addEventListener('pointerup', () => { isDragging = false; });
+    app.canvas.addEventListener('pointerleave', () => { isDragging = false; });
+
+    // Mouse wheel zoom
+    app.canvas.addEventListener('wheel', (e) => {
+      const scaleFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      const mouseX = e.offsetX;
+      const mouseY = e.offsetY;
+
+      viewport.scale.x *= scaleFactor;
+      viewport.scale.y *= scaleFactor;
+
+      viewport.x = mouseX - (mouseX - viewport.x) * scaleFactor;
+      viewport.y = mouseY - (mouseY - viewport.y) * scaleFactor;
+    });
+
+    // Mobile pinch zoom support (basic)
+    let initialDistance = 0;
+    let initialScale = 1;
+
+    app.canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        initialDistance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        initialScale = viewport.scale.x;
+      }
+    });
+
+    app.canvas.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2) {
+        const currentDistance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const scaleFactor = currentDistance / initialDistance;
+        viewport.scale.x = initialScale * scaleFactor;
+        viewport.scale.y = initialScale * scaleFactor;
+      }
+    });
+  };
+
+  const updateDinoSprites = (nearbyData: any[]) => {
+    if (!appRef.current) return;
+    const app = appRef.current;
+
+    nearbyData.forEach((item) => {
+      const dinoId = item.dino_id.toString();
+      let sprite = spritesRef.current.get(dinoId);
+
+      if (!sprite) {
+        sprite = PIXI.Sprite.from('/sprites/templates/raptor_baby_sprite.png'); // temporary - will become dynamic
+        sprite.anchor.set(0.5);
+        sprite.scale.set(0.8);
+        app.stage.addChild(sprite);
+        spritesRef.current.set(dinoId, sprite);
+      }
+
+      sprite.x = item.position_x || 1250;
+      sprite.y = item.position_y || 1000;
+    });
   };
 
   // -------------------------------
