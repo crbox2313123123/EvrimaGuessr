@@ -531,11 +531,6 @@ export default function HubPage() {
             flex: 1 1 auto;
             min-width: 140px;
           }
-          .footer-buttons { 
-            flex-wrap: wrap; 
-            gap: 10px; 
-            justify-content: center; 
-          }
           .scroll { padding: 10px; }
         }
 
@@ -555,9 +550,9 @@ export default function HubPage() {
         </header>
 
         <div className="main">
-          {/* LEFT - DINO BANK */}
+          {/* LEFT - DINO BANK - Given more room on mobile */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minHeight: 0 }}>
-            <div className="panel">
+            <div className="panel" style={{ flex: '1 1 auto' }}>
               <div style={{ padding: '14px 18px', background: '#0a0a1f', borderBottom: '3px solid #0f0', fontSize: '0.95rem', textShadow: '0 0 8px #0f0' }}>DINO BANK</div>
               <div className="scroll">
                 {dinos.map(d => (
@@ -585,8 +580,8 @@ export default function HubPage() {
             </div>
           </div>
 
-          {/* CENTER - SELECTED DINO */}
-          <div className="panel centerCard">
+          {/* CENTER - SELECTED DINO - More room for picture */}
+          <div className="panel centerCard" style={{ flex: '1 1 auto' }}>
             {selected ? (
               <>
                 <div className="dinoIcon">{selected.stage === 'egg' ? '🪺' : '🦕'}</div>
@@ -605,8 +600,8 @@ export default function HubPage() {
             )}
           </div>
 
-          {/* RIGHT - LIVE STATS */}
-          <div className="panel">
+          {/* RIGHT - LIVE STATS - Reduced height on mobile */}
+          <div className="panel" style={{ flex: '1 1 auto' }}>
             <div style={{ padding: '14px 18px', background: '#0a0a1f', borderBottom: '3px solid #0f0', fontSize: '0.95rem', textShadow: '0 0 8px #0f0' }}>LIVE STATS</div>
             <div className="scroll" style={{ padding: '14px 18px' }}>
               <div className="section-header">SURVIVAL</div>
