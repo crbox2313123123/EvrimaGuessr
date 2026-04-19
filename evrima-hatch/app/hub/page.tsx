@@ -1,5 +1,4 @@
 'use client';
-
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
@@ -67,7 +66,6 @@ interface Dino {
   last_dynamic_update: string;
   current_stats: any;
   created_at: string;
-
   boldness: number;
   patience: number;
   intelligence: number;
@@ -101,10 +99,11 @@ export default function HubPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
-  const router = useRouter();
 
+  const router = useRouter();
   const selectedIdRef = useRef<string | null>(null);
   const optionsButtonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null); // ← NEW: required for proper context menu behavior
 
   const round = (val: any) => Math.round(Number(val) || 0);
 
@@ -115,11 +114,11 @@ export default function HubPage() {
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return router.push('/login');
-    
+   
     console.log('🔑 DEBUG: Auth successful for user:', session.user.id);
     setCurrentUser(session.user);
     setUserId(session.user.id);
-    
+   
     const dinoData = await loadDinos(session.user.id);
     await loadPlayerState(dinoData);
   };
@@ -127,13 +126,12 @@ export default function HubPage() {
   const loadDinos = async (currentUserId?: string) => {
     const uid = currentUserId || userId;
     if (!uid) return [];
-    
+   
     const { data } = await supabase
       .from('evrima_player_dinos')
       .select('*')
       .eq('user_id', uid)
       .order('created_at', { ascending: false });
-
     const dinoList = data || [];
     setDinos(dinoList);
     console.log('📋 DEBUG: Loaded', dinoList.length, 'dinos in bank for user', uid);
@@ -145,24 +143,22 @@ export default function HubPage() {
       setLoading(false);
       return;
     }
-    
+   
     console.log('📡 DEBUG: Loading player state for user:', userId);
-    
+   
     const { data: state } = await supabase
       .from('evrima_player_state')
       .select('selected_dino_id')
       .eq('user_id', userId)
       .single();
-
     if (state?.selected_dino_id) {
       console.log('✅ DEBUG: Found saved selection:', state.selected_dino_id);
-      
+     
       const { data: dino } = await supabase
         .from('evrima_player_dinos')
         .select('*')
         .eq('id', state.selected_dino_id)
         .single();
-
       if (dino) {
         console.log('🎯 DEBUG: Setting selected dino from DB →', dino.dino_name, '(', dino.id, ')');
         setSelected(dino);
@@ -175,15 +171,14 @@ export default function HubPage() {
       selectedIdRef.current = newest.id;
       await saveSelectedDino(newest.id);
     }
-
     setLoading(false);
   };
 
   const saveSelectedDino = async (dinoId: string) => {
     if (!userId) return;
-    
+   
     console.log('💾 DEBUG: Saving selection to evrima_player_state → dinoId:', dinoId);
-    
+   
     const { error } = await supabase
       .from('evrima_player_state')
       .upsert({
@@ -191,7 +186,6 @@ export default function HubPage() {
         selected_dino_id: dinoId,
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' });
-
     if (error) {
       console.error('❌ Failed to save selection:', error);
     } else {
@@ -208,49 +202,68 @@ export default function HubPage() {
 
   useEffect(() => {
     if (!selected?.id) return;
-
     selectedIdRef.current = selected.id;
-
     const interval = setInterval(async () => {
       const currentId = selectedIdRef.current;
       if (!currentId) return;
-
       const { data } = await supabase
         .from('evrima_player_dinos')
         .select('*')
         .eq('id', currentId)
         .single();
-
       if (data) setSelected(data);
     }, 5000);
-
     return () => clearInterval(interval);
   }, [selected?.id]);
 
   useEffect(() => {
     if (!userId) return;
-    
+   
     const interval = setInterval(() => {
       loadDinos(userId);
     }, 6000);
-
     return () => clearInterval(interval);
   }, [userId]);
 
-  // Close menu when clicking outside
+  // ─────────────────────────────────────────────────────────────
+  // COMPLETELY REWRITTEN CONTEXT MENU LOGIC (production-ready)
+  // ─────────────────────────────────────────────────────────────
+
+  // Close menu when clicking outside (button OR menu itself)
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (optionsButtonRef.current && !optionsButtonRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const isClickOnButton = optionsButtonRef.current?.contains(target) ?? false;
+      const isClickOnMenu = menuRef.current?.contains(target) ?? false;
+
+      if (!isClickOnButton && !isClickOnMenu) {
         setShowOptionsMenu(false);
       }
     };
-    if (showOptionsMenu) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+
+    if (showOptionsMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showOptionsMenu]);
+
+  // Close on Escape key (standard UX for menus)
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowOptionsMenu(false);
+      }
+    };
+
+    if (showOptionsMenu) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
   }, [showOptionsMenu]);
 
   const handleOptionsClick = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
-    setShowOptionsMenu(!showOptionsMenu);
+    setShowOptionsMenu(prev => !prev); // functional update = more reliable
   };
 
   const handleGenerateEgg = async () => {
@@ -330,17 +343,17 @@ export default function HubPage() {
     }
   };
 
-  const realMaxHp = selected?.current_stats?.max_health 
-    ? round(selected.current_stats.max_health) 
+  const realMaxHp = selected?.current_stats?.max_health
+    ? round(selected.current_stats.max_health)
     : 0;
-  const realCurrentHp = selected?.current_stats?.current_health 
-    ? round(selected.current_stats.current_health) 
+  const realCurrentHp = selected?.current_stats?.current_health
+    ? round(selected.current_stats.current_health)
     : 0;
-  const realWeight = selected?.current_stats?.weight 
-    ? round(selected.current_stats.weight) 
+  const realWeight = selected?.current_stats?.weight
+    ? round(selected.current_stats.weight)
     : 0;
-  const realCombatPower = selected?.current_stats?.combat_power 
-    ? round(selected.current_stats.combat_power) 
+  const realCombatPower = selected?.current_stats?.combat_power
+    ? round(selected.current_stats.combat_power)
     : 0;
 
   if (loading) return <div className="loading">LOADING...</div>;
@@ -359,14 +372,12 @@ export default function HubPage() {
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #0f0; border-radius: 20px; }
-
-        .root { 
-          min-height: 100vh; 
-          display: grid; 
-          grid-template-rows: 80px 1fr 80px; 
+        .root {
+          min-height: 100vh;
+          display: grid;
+          grid-template-rows: 80px 1fr 80px;
           position: relative;
         }
-
         .main {
           display: grid;
           grid-template-columns: 340px 0.7fr 420px;
@@ -375,7 +386,6 @@ export default function HubPage() {
           min-height: 0;
           background: #05050f;
         }
-
         .panel {
           border: 4px solid #0f0;
           box-shadow: 0 0 12px #0f0;
@@ -387,14 +397,12 @@ export default function HubPage() {
           letter-spacing: 2px;
           overflow: hidden;
         }
-
-        .scroll { 
-          overflow-y: auto; 
-          flex: 1; 
-          min-height: 0; 
-          padding: 12px; 
+        .scroll {
+          overflow-y: auto;
+          flex: 1;
+          min-height: 0;
+          padding: 12px;
         }
-
         .dinoItem {
           padding: 14px 18px;
           border-bottom: 2px solid rgba(15,240,0,0.25);
@@ -405,7 +413,6 @@ export default function HubPage() {
           text-shadow: 0 0 6px #0f0;
         }
         .dinoItem:hover { background: rgba(15,240,0,0.12); transform: translateX(6px); }
-
         .centerCard {
           display: flex;
           flex-direction: column;
@@ -416,7 +423,6 @@ export default function HubPage() {
           gap: 12px;
           font-size: 1.1rem;
         }
-
         .dinoIcon {
           font-size: 82px;
           opacity: 0.35;
@@ -424,7 +430,6 @@ export default function HubPage() {
           animation: float 3s ease-in-out infinite;
         }
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-
         .progress-container {
           height: 14px;
           background: #0a0a1f;
@@ -434,7 +439,6 @@ export default function HubPage() {
           overflow: hidden;
         }
         .progress-bar { height: 100%; transition: width 0.4s ease; }
-
         .stat-label {
           font-size: 0.82rem;
           color: #0ff;
@@ -442,7 +446,6 @@ export default function HubPage() {
           display: flex;
           justify-content: space-between;
         }
-
         .section-header {
           background: #0a0a1f;
           padding: 8px 14px;
@@ -451,7 +454,6 @@ export default function HubPage() {
           margin-bottom: 10px;
           text-shadow: 0 0 8px #0f0;
         }
-
         .see-more {
           cursor: pointer;
           font-size: 0.85rem;
@@ -463,7 +465,6 @@ export default function HubPage() {
           transition: all 0.2s;
         }
         .see-more:hover { color: #0f0; background: rgba(15,240,0,0.1); }
-
         .stat-row {
           display: grid;
           grid-template-columns: 195px 1fr;
@@ -485,13 +486,11 @@ export default function HubPage() {
           color: #ff0;
           text-align: left;
         }
-
         .header-text {
           text-shadow: 0 0 8px #0f0;
           letter-spacing: 3px;
           font-size: 1.15rem;
         }
-
         .btn {
           border: 3px solid #0f0;
           padding: 12px 24px;
@@ -518,7 +517,6 @@ export default function HubPage() {
         .btn.blue:hover { background: #0ff; color: #111133; }
         .btn.red { color: #f44; border-color: #f44; }
         .btn.red:hover { background: #f44; color: #111133; }
-
         .loading {
           height: 100vh;
           display: flex;
@@ -527,20 +525,17 @@ export default function HubPage() {
           font-size: 1.4rem;
           text-shadow: 0 0 12px #0f0;
         }
-
         /* Desktop: Both panels same height so bottoms are perfectly flush */
         .dino-bank-panel,
         .live-stats-panel {
           max-height: 680px;
           overflow: hidden;
         }
-
         .advanced-container {
           max-height: 380px;
           overflow-y: auto;
           padding-right: 8px;
         }
-
         /* Footer */
         .footer-buttons {
           position: relative;
@@ -550,7 +545,6 @@ export default function HubPage() {
           padding: 12px;
           border-top: 4px solid #0f0;
         }
-
         /* Context menu - fixed position, outside grid */
         .options-menu {
           position: fixed;
@@ -568,7 +562,6 @@ export default function HubPage() {
           gap: 4px;
           border-radius: 4px;
         }
-
         .menu-item {
           padding: 14px 28px;
           font-family: 'Press Start 2P', system-ui;
@@ -583,7 +576,6 @@ export default function HubPage() {
           background: #0f0;
           color: #111133;
         }
-
         /* Mobile full-screen menu */
         @media (max-width: 900px) {
           .options-menu {
@@ -596,8 +588,8 @@ export default function HubPage() {
             overflow-y: auto;
             border-radius: 8px;
           }
-          .root { 
-            grid-template-rows: 70px auto 80px; 
+          .root {
+            grid-template-rows: 70px auto 80px;
             min-height: 100vh;
           }
           .main {
@@ -609,33 +601,31 @@ export default function HubPage() {
             min-height: auto;
             border-width: 3px;
           }
-          .dinoItem { 
-            font-size: 0.88rem; 
-            padding: 12px 14px; 
+          .dinoItem {
+            font-size: 0.88rem;
+            padding: 12px 14px;
           }
-          .centerCard { 
-            padding: 16px; 
-            font-size: 1rem; 
+          .centerCard {
+            padding: 16px;
+            font-size: 1rem;
             min-height: 220px;
           }
           .dinoIcon { font-size: 72px; }
-          .stat-row { 
-            grid-template-columns: 1fr; 
-            gap: 6px; 
-            font-size: 0.78rem; 
+          .stat-row {
+            grid-template-columns: 1fr;
+            gap: 6px;
+            font-size: 0.78rem;
           }
           .dino-bank-panel {
             max-height: 240px;
           }
           .scroll { padding: 10px; }
         }
-
         @media (max-width: 600px) {
           .main { padding: 12px 8px; }
           .header-text { font-size: 1rem; }
         }
       `}</style>
-
       <div className="root">
         <header className="panel" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', borderBottom: '4px solid #0f0' }}>
           <div className="header-text">🦕 EVRIMAHATCH</div>
@@ -643,7 +633,6 @@ export default function HubPage() {
             {currentUser ? (currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || 'SURVIVOR') : 'SURVIVOR'}
           </div>
         </header>
-
         <div className="main">
           {/* LEFT - DINO BANK */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minHeight: 0 }}>
@@ -651,11 +640,11 @@ export default function HubPage() {
               <div style={{ padding: '14px 18px', background: '#0a0a1f', borderBottom: '3px solid #0f0', fontSize: '0.95rem', textShadow: '0 0 8px #0f0' }}>DINO BANK</div>
               <div className="scroll">
                 {dinos.map(d => (
-                  <div 
-                    key={d.id} 
-                    className="dinoItem" 
+                  <div
+                    key={d.id}
+                    className="dinoItem"
                     onClick={() => handleSelectDino(d)}
-                    style={{ 
+                    style={{
                       background: selected?.id === d.id ? 'rgba(15,240,0,0.25)' : 'transparent',
                       borderLeft: selected?.id === d.id ? '6px solid #0f0' : 'none'
                     }}
@@ -669,7 +658,6 @@ export default function HubPage() {
               </div>
             </div>
           </div>
-
           {/* CENTER - SELECTED DINO */}
           <div className="panel centerCard" style={{ flex: '1 1 auto', minHeight: '260px' }}>
             {selected ? (
@@ -689,7 +677,6 @@ export default function HubPage() {
               <div style={{ opacity: 0.4, fontSize: '1.1rem' }}>NO DINO SELECTED</div>
             )}
           </div>
-
           {/* RIGHT - LIVE STATS */}
           <div className="panel live-stats-panel" style={{ flex: '1 1 auto' }}>
             <div style={{ padding: '14px 18px', background: '#0a0a1f', borderBottom: '3px solid #0f0', fontSize: '0.95rem', textShadow: '0 0 8px #0f0' }}>LIVE STATS</div>
@@ -703,7 +690,6 @@ export default function HubPage() {
               <div className="progress-container"><div className="progress-bar" style={{ width: `${round(selected?.stamina)}%`, background: '#0f0', boxShadow: '0 0 8px #0f0' }} /></div>
               <div className="stat-label"><span>FATIGUE</span><span style={{ color: '#f44' }}>{round(selected?.fatigue)}</span></div>
               <div className="progress-container"><div className="progress-bar" style={{ width: `${round(selected?.fatigue)}%`, background: '#f44', boxShadow: '0 0 8px #f44' }} /></div>
-
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '18px', fontSize: '0.82rem' }}>
                 <div><span style={{color:'#f44'}}>BLEEDING:</span> {round(selected?.bleeding)}</div>
                 <div><span style={{color:'#ff0'}}>SICKNESS:</span> {round(selected?.sickness)}</div>
@@ -712,7 +698,6 @@ export default function HubPage() {
                 <div><span style={{color:'#f44'}}>BROKEN LIMB:</span> {selected?.broken_limb ? 'YES' : 'NO'}</div>
                 <div><span style={{color:'#f44'}}>RIB FRACTURE:</span> {selected?.broken_ribs ? 'YES' : 'NO'}</div>
               </div>
-
               <div className="section-header" style={{ marginTop: '28px' }}>PHYSICAL &amp; COMBAT</div>
               <div style={{ fontSize: '0.85rem', lineHeight: 1.6 }}>
                 <div><strong>WEIGHT:</strong> <span style={{color:'#ff0'}}>{realWeight} kg</span></div>
@@ -720,15 +705,12 @@ export default function HubPage() {
                 <div><strong>SPEED:</strong> <span style={{color:'#0ff'}}>{selected?.current_stats?.sprint_speed || 0}</span></div>
                 <div><strong>COMBAT POWER:</strong> <span style={{color:'#f80'}}>{realCombatPower}</span></div>
               </div>
-
               <div className="see-more" onClick={() => setShowAdvanced(!showAdvanced)}>
                 {showAdvanced ? '▲ HIDE ADVANCED STATS' : '▼ SEE MORE (ALL STATS)'}
               </div>
-
               {showAdvanced && (
                 <div className="advanced-container" style={{ marginTop: '12px' }}>
                   <div className="section-header">ADVANCED STATS</div>
-
                   <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '8px' }}>EMOTIONS &amp; DRIVES</div>
                   <div className="stat-row"><span>AGGRESSION</span><span>{round(selected?.aggression)}</span></div>
                   <div className="stat-row"><span>FEAR</span><span>{round(selected?.fear)}</span></div>
@@ -739,7 +721,6 @@ export default function HubPage() {
                   <div className="stat-row"><span>FRUSTRATION</span><span>{round(selected?.frustration)}</span></div>
                   <div className="stat-row"><span>BOREDOM</span><span>{round(selected?.boredom)}</span></div>
                   <div className="stat-row"><span>ALERTNESS</span><span>{round(selected?.alertness)}</span></div>
-
                   <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>BEHAVIORAL TRAITS</div>
                   <div className="stat-row"><span>BOLDNESS</span><span>{round(selected?.boldness)}</span></div>
                   <div className="stat-row"><span>PATIENCE</span><span>{round(selected?.patience)}</span></div>
@@ -747,27 +728,23 @@ export default function HubPage() {
                   <div className="stat-row"><span>LOYALTY</span><span>{round(selected?.loyalty)}</span></div>
                   <div className="stat-row"><span>OPPORTUNISM</span><span>{round(selected?.opportunism)}</span></div>
                   <div className="stat-row"><span>CAUTION</span><span>{round(selected?.caution)}</span></div>
-
                   <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>SOCIAL GENETICS</div>
                   <div className="stat-row"><span>PACK AFFINITY</span><span>{round(selected?.pack_affinity)}</span></div>
                   <div className="stat-row"><span>SUBMISSION TENDENCY</span><span>{round(selected?.submission_tendency)}</span></div>
                   <div className="stat-row"><span>LEADERSHIP</span><span>{round(selected?.leadership)}</span></div>
                   <div className="stat-row"><span>EMPATHY</span><span>{round(selected?.empathy)}</span></div>
                   <div className="stat-row"><span>TOLERANCE</span><span>{round(selected?.tolerance)}</span></div>
-
                   <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>COMBAT STYLE</div>
                   <div className="stat-row"><span>FEROCITY</span><span>{round(selected?.ferocity)}</span></div>
                   <div className="stat-row"><span>DEFENSIVENESS</span><span>{round(selected?.defensiveness)}</span></div>
                   <div className="stat-row"><span>TARGET FOCUS</span><span>{round(selected?.target_focus)}</span></div>
                   <div className="stat-row"><span>AMBUSH TENDENCY</span><span>{round(selected?.ambush_tendency)}</span></div>
                   <div className="stat-row"><span>RISK ASSESSMENT</span><span>{round(selected?.risk_assessment)}</span></div>
-
                   <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>PERCEPTION</div>
                   <div className="stat-row"><span>VISION RANGE</span><span>{round(selected?.vision_range)}</span></div>
                   <div className="stat-row"><span>NIGHT VISION</span><span>{round(selected?.night_vision)}</span></div>
                   <div className="stat-row"><span>SMELL SENSITIVITY</span><span>{round(selected?.smell_sensitivity)}</span></div>
                   <div className="stat-row"><span>HEARING SENSITIVITY</span><span>{round(selected?.hearing_sensitivity)}</span></div>
-
                   <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>URGES</div>
                   <div className="stat-row"><span>HUNGER URGE</span><span>{round(selected?.hunger_urge)}</span></div>
                   <div className="stat-row"><span>THIRST URGE</span><span>{round(selected?.thirst_urge)}</span></div>
@@ -775,7 +752,6 @@ export default function HubPage() {
                   <div className="stat-row"><span>SAFETY URGE</span><span>{round(selected?.safety_urge)}</span></div>
                   <div className="stat-row"><span>SOCIAL URGE</span><span>{round(selected?.social_urge)}</span></div>
                   <div className="stat-row"><span>ESCAPE URGE</span><span>{round(selected?.escape_urge)}</span></div>
-
                   <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>STATE &amp; MISC</div>
                   <div className="stat-row"><span>STANCE</span><span>{selected?.stance || 'neutral'}</span></div>
                   <div className="stat-row"><span>GOAL PRIORITY</span><span>{round(selected?.goal_priority)}</span></div>
@@ -788,12 +764,11 @@ export default function HubPage() {
             </div>
           </div>
         </div>
-
         {/* FOOTER - single OPTIONS button */}
         <div className="panel footer-buttons" style={{ position: 'relative', zIndex: 10000 }}>
-          <button 
+          <button
             ref={optionsButtonRef}
-            className="btn" 
+            className="btn"
             onClick={handleOptionsClick}
             onTouchEnd={handleOptionsClick}
             disabled={actionLoading}
@@ -803,9 +778,9 @@ export default function HubPage() {
           </button>
         </div>
 
-        {/* CONTEXT MENU - rendered at root level, outside grid */}
+        {/* CONTEXT MENU - now fully reliable */}
         {showOptionsMenu && (
-          <div className="options-menu">
+          <div ref={menuRef} className="options-menu">
             <div className="menu-item" onClick={handleGenerateEgg}>NEW EGG</div>
             <div className="menu-item" style={{ color: '#ff0' }} onClick={handleServerTick}>SERVER TICK</div>
             <div className="menu-item" style={{ color: '#0ff' }} onClick={handleRecalculate}>RECALC STATS</div>
