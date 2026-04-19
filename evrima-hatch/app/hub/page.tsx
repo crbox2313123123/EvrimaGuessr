@@ -501,7 +501,7 @@ export default function HubPage() {
 
         /* Desktop: Live Stats panel fixed height so center never moves */
         .live-stats-panel {
-          max-height: 620px; /* Slightly taller so SEE MORE is always visible by default */
+          max-height: 620px;
           overflow: hidden;
         }
 
@@ -511,7 +511,7 @@ export default function HubPage() {
           padding-right: 8px;
         }
 
-        /* MOBILE */
+        /* MOBILE REORDERING - MORE OPTIONS moves to bottom */
         @media (max-width: 900px) {
           .root { 
             grid-template-rows: 70px auto 80px; 
@@ -554,6 +554,8 @@ export default function HubPage() {
             min-height: 180px;
             max-height: 320px;
           }
+          /* Reorder MORE OPTIONS to the very bottom on mobile */
+          .more-options-mobile { order: 999; }
           .scroll { padding: 10px; }
         }
 
@@ -572,7 +574,7 @@ export default function HubPage() {
         </header>
 
         <div className="main">
-          {/* LEFT - DINO BANK */}
+          {/* LEFT - DINO BANK + MORE OPTIONS (desktop position) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minHeight: 0 }}>
             <div className="panel dino-bank-panel">
               <div style={{ padding: '14px 18px', background: '#0a0a1f', borderBottom: '3px solid #0f0', fontSize: '0.95rem', textShadow: '0 0 8px #0f0' }}>DINO BANK</div>
@@ -594,6 +596,12 @@ export default function HubPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* MORE OPTIONS - left on desktop, reordered to bottom on mobile */}
+            <div className="panel more-options-mobile" style={{ height: '100px', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', textShadow: '0 0 8px #0f0' }}>
+              MORE OPTIONS<br/>
+              <span style={{ fontSize: '0.7rem', opacity: 0.6 }}>COMING SOON</span>
             </div>
           </div>
 
@@ -617,109 +625,101 @@ export default function HubPage() {
             )}
           </div>
 
-          {/* RIGHT - LIVE STATS + MORE OPTIONS UNDER IT ON MOBILE */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div className="panel live-stats-panel" style={{ flex: '1 1 auto' }}>
-              <div style={{ padding: '14px 18px', background: '#0a0a1f', borderBottom: '3px solid #0f0', fontSize: '0.95rem', textShadow: '0 0 8px #0f0' }}>LIVE STATS</div>
-              <div className="scroll" style={{ padding: '14px 18px' }}>
-                <div className="section-header">SURVIVAL</div>
-                <div className="stat-label"><span>HUNGER</span><span style={{ color: '#ff0' }}>{round(selected?.hunger)}</span></div>
-                <div className="progress-container"><div className="progress-bar" style={{ width: `${round(selected?.hunger)}%`, background: '#ff0', boxShadow: '0 0 8px #ff0' }} /></div>
-                <div className="stat-label"><span>THIRST</span><span style={{ color: '#0ff' }}>{round(selected?.thirst)}</span></div>
-                <div className="progress-container"><div className="progress-bar" style={{ width: `${round(selected?.thirst)}%`, background: '#0ff', boxShadow: '0 0 8px #0ff' }} /></div>
-                <div className="stat-label"><span>STAMINA</span><span style={{ color: '#0f0' }}>{round(selected?.stamina)}</span></div>
-                <div className="progress-container"><div className="progress-bar" style={{ width: `${round(selected?.stamina)}%`, background: '#0f0', boxShadow: '0 0 8px #0f0' }} /></div>
-                <div className="stat-label"><span>FATIGUE</span><span style={{ color: '#f44' }}>{round(selected?.fatigue)}</span></div>
-                <div className="progress-container"><div className="progress-bar" style={{ width: `${round(selected?.fatigue)}%`, background: '#f44', boxShadow: '0 0 8px #f44' }} /></div>
+          {/* RIGHT - LIVE STATS */}
+          <div className="panel live-stats-panel" style={{ flex: '1 1 auto' }}>
+            <div style={{ padding: '14px 18px', background: '#0a0a1f', borderBottom: '3px solid #0f0', fontSize: '0.95rem', textShadow: '0 0 8px #0f0' }}>LIVE STATS</div>
+            <div className="scroll" style={{ padding: '14px 18px' }}>
+              <div className="section-header">SURVIVAL</div>
+              <div className="stat-label"><span>HUNGER</span><span style={{ color: '#ff0' }}>{round(selected?.hunger)}</span></div>
+              <div className="progress-container"><div className="progress-bar" style={{ width: `${round(selected?.hunger)}%`, background: '#ff0', boxShadow: '0 0 8px #ff0' }} /></div>
+              <div className="stat-label"><span>THIRST</span><span style={{ color: '#0ff' }}>{round(selected?.thirst)}</span></div>
+              <div className="progress-container"><div className="progress-bar" style={{ width: `${round(selected?.thirst)}%`, background: '#0ff', boxShadow: '0 0 8px #0ff' }} /></div>
+              <div className="stat-label"><span>STAMINA</span><span style={{ color: '#0f0' }}>{round(selected?.stamina)}</span></div>
+              <div className="progress-container"><div className="progress-bar" style={{ width: `${round(selected?.stamina)}%`, background: '#0f0', boxShadow: '0 0 8px #0f0' }} /></div>
+              <div className="stat-label"><span>FATIGUE</span><span style={{ color: '#f44' }}>{round(selected?.fatigue)}</span></div>
+              <div className="progress-container"><div className="progress-bar" style={{ width: `${round(selected?.fatigue)}%`, background: '#f44', boxShadow: '0 0 8px #f44' }} /></div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '18px', fontSize: '0.82rem' }}>
-                  <div><span style={{color:'#f44'}}>BLEEDING:</span> {round(selected?.bleeding)}</div>
-                  <div><span style={{color:'#ff0'}}>SICKNESS:</span> {round(selected?.sickness)}</div>
-                  <div><span style={{color:'#f80'}}>INFECTION:</span> {round(selected?.infection)}</div>
-                  <div><span style={{color:'#0ff'}}>TEMP:</span> {round(selected?.temperature)}°C</div>
-                  <div><span style={{color:'#f44'}}>BROKEN LIMB:</span> {selected?.broken_limb ? 'YES' : 'NO'}</div>
-                  <div><span style={{color:'#f44'}}>RIB FRACTURE:</span> {selected?.broken_ribs ? 'YES' : 'NO'}</div>
-                </div>
-
-                <div className="section-header" style={{ marginTop: '28px' }}>PHYSICAL &amp; COMBAT</div>
-                <div style={{ fontSize: '0.85rem', lineHeight: 1.6 }}>
-                  <div><strong>WEIGHT:</strong> <span style={{color:'#ff0'}}>{realWeight} kg</span></div>
-                  <div><strong>HP:</strong> <span style={{color:'#0f0'}}>{realCurrentHp}</span> / <span style={{color:'#0ff'}}>{realMaxHp}</span></div>
-                  <div><strong>SPEED:</strong> <span style={{color:'#0ff'}}>{selected?.current_stats?.sprint_speed || 0}</span></div>
-                  <div><strong>COMBAT POWER:</strong> <span style={{color:'#f80'}}>{realCombatPower}</span></div>
-                </div>
-
-                <div className="see-more" onClick={() => setShowAdvanced(!showAdvanced)}>
-                  {showAdvanced ? '▲ HIDE ADVANCED STATS' : '▼ SEE MORE (ALL STATS)'}
-                </div>
-
-                {showAdvanced && (
-                  <div className="advanced-container" style={{ marginTop: '12px' }}>
-                    <div className="section-header">ADVANCED STATS</div>
-
-                    <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '8px' }}>EMOTIONS &amp; DRIVES</div>
-                    <div className="stat-row"><span>AGGRESSION</span><span>{round(selected?.aggression)}</span></div>
-                    <div className="stat-row"><span>FEAR</span><span>{round(selected?.fear)}</span></div>
-                    <div className="stat-row"><span>STRESS</span><span>{round(selected?.stress)}</span></div>
-                    <div className="stat-row"><span>CONFIDENCE</span><span>{round(selected?.confidence)}</span></div>
-                    <div className="stat-row"><span>COMFORT</span><span>{round(selected?.comfort)}</span></div>
-                    <div className="stat-row"><span>CURIOSITY</span><span>{round(selected?.curiosity)}</span></div>
-                    <div className="stat-row"><span>FRUSTRATION</span><span>{round(selected?.frustration)}</span></div>
-                    <div className="stat-row"><span>BOREDOM</span><span>{round(selected?.boredom)}</span></div>
-                    <div className="stat-row"><span>ALERTNESS</span><span>{round(selected?.alertness)}</span></div>
-
-                    <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>BEHAVIORAL TRAITS</div>
-                    <div className="stat-row"><span>BOLDNESS</span><span>{round(selected?.boldness)}</span></div>
-                    <div className="stat-row"><span>PATIENCE</span><span>{round(selected?.patience)}</span></div>
-                    <div className="stat-row"><span>INTELLIGENCE</span><span>{round(selected?.intelligence)}</span></div>
-                    <div className="stat-row"><span>LOYALTY</span><span>{round(selected?.loyalty)}</span></div>
-                    <div className="stat-row"><span>OPPORTUNISM</span><span>{round(selected?.opportunism)}</span></div>
-                    <div className="stat-row"><span>CAUTION</span><span>{round(selected?.caution)}</span></div>
-
-                    <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>SOCIAL GENETICS</div>
-                    <div className="stat-row"><span>PACK AFFINITY</span><span>{round(selected?.pack_affinity)}</span></div>
-                    <div className="stat-row"><span>SUBMISSION TENDENCY</span><span>{round(selected?.submission_tendency)}</span></div>
-                    <div className="stat-row"><span>LEADERSHIP</span><span>{round(selected?.leadership)}</span></div>
-                    <div className="stat-row"><span>EMPATHY</span><span>{round(selected?.empathy)}</span></div>
-                    <div className="stat-row"><span>TOLERANCE</span><span>{round(selected?.tolerance)}</span></div>
-
-                    <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>COMBAT STYLE</div>
-                    <div className="stat-row"><span>FEROCITY</span><span>{round(selected?.ferocity)}</span></div>
-                    <div className="stat-row"><span>DEFENSIVENESS</span><span>{round(selected?.defensiveness)}</span></div>
-                    <div className="stat-row"><span>TARGET FOCUS</span><span>{round(selected?.target_focus)}</span></div>
-                    <div className="stat-row"><span>AMBUSH TENDENCY</span><span>{round(selected?.ambush_tendency)}</span></div>
-                    <div className="stat-row"><span>RISK ASSESSMENT</span><span>{round(selected?.risk_assessment)}</span></div>
-
-                    <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>PERCEPTION</div>
-                    <div className="stat-row"><span>VISION RANGE</span><span>{round(selected?.vision_range)}</span></div>
-                    <div className="stat-row"><span>NIGHT VISION</span><span>{round(selected?.night_vision)}</span></div>
-                    <div className="stat-row"><span>SMELL SENSITIVITY</span><span>{round(selected?.smell_sensitivity)}</span></div>
-                    <div className="stat-row"><span>HEARING SENSITIVITY</span><span>{round(selected?.hearing_sensitivity)}</span></div>
-
-                    <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>URGES</div>
-                    <div className="stat-row"><span>HUNGER URGE</span><span>{round(selected?.hunger_urge)}</span></div>
-                    <div className="stat-row"><span>THIRST URGE</span><span>{round(selected?.thirst_urge)}</span></div>
-                    <div className="stat-row"><span>REST URGE</span><span>{round(selected?.rest_urge)}</span></div>
-                    <div className="stat-row"><span>SAFETY URGE</span><span>{round(selected?.safety_urge)}</span></div>
-                    <div className="stat-row"><span>SOCIAL URGE</span><span>{round(selected?.social_urge)}</span></div>
-                    <div className="stat-row"><span>ESCAPE URGE</span><span>{round(selected?.escape_urge)}</span></div>
-
-                    <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>STATE &amp; MISC</div>
-                    <div className="stat-row"><span>STANCE</span><span>{selected?.stance || 'neutral'}</span></div>
-                    <div className="stat-row"><span>GOAL PRIORITY</span><span>{round(selected?.goal_priority)}</span></div>
-                    <div className="stat-row"><span>ENGAGED</span><span>{selected?.engaged ? 'YES' : 'NO'}</span></div>
-                    <div className="stat-row"><span>REACTIVITY</span><span>{round(selected?.reactivity)}</span></div>
-                    <div className="stat-row"><span>COMMITMENT</span><span>{round(selected?.commitment)}</span></div>
-                    <div className="stat-row"><span>THREAT LEVEL</span><span>{round(selected?.threat_level)}</span></div>
-                  </div>
-                )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '18px', fontSize: '0.82rem' }}>
+                <div><span style={{color:'#f44'}}>BLEEDING:</span> {round(selected?.bleeding)}</div>
+                <div><span style={{color:'#ff0'}}>SICKNESS:</span> {round(selected?.sickness)}</div>
+                <div><span style={{color:'#f80'}}>INFECTION:</span> {round(selected?.infection)}</div>
+                <div><span style={{color:'#0ff'}}>TEMP:</span> {round(selected?.temperature)}°C</div>
+                <div><span style={{color:'#f44'}}>BROKEN LIMB:</span> {selected?.broken_limb ? 'YES' : 'NO'}</div>
+                <div><span style={{color:'#f44'}}>RIB FRACTURE:</span> {selected?.broken_ribs ? 'YES' : 'NO'}</div>
               </div>
-            </div>
 
-            {/* MORE OPTIONS - Under Live Stats on mobile, at bottom */}
-            <div className="panel" style={{ alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', textShadow: '0 0 8px #0f0', padding: '20px 0' }}>
-              MORE OPTIONS<br/>
-              <span style={{ fontSize: '0.7rem', opacity: 0.6 }}>COMING SOON</span>
+              <div className="section-header" style={{ marginTop: '28px' }}>PHYSICAL &amp; COMBAT</div>
+              <div style={{ fontSize: '0.85rem', lineHeight: 1.6 }}>
+                <div><strong>WEIGHT:</strong> <span style={{color:'#ff0'}}>{realWeight} kg</span></div>
+                <div><strong>HP:</strong> <span style={{color:'#0f0'}}>{realCurrentHp}</span> / <span style={{color:'#0ff'}}>{realMaxHp}</span></div>
+                <div><strong>SPEED:</strong> <span style={{color:'#0ff'}}>{selected?.current_stats?.sprint_speed || 0}</span></div>
+                <div><strong>COMBAT POWER:</strong> <span style={{color:'#f80'}}>{realCombatPower}</span></div>
+              </div>
+
+              <div className="see-more" onClick={() => setShowAdvanced(!showAdvanced)}>
+                {showAdvanced ? '▲ HIDE ADVANCED STATS' : '▼ SEE MORE (ALL STATS)'}
+              </div>
+
+              {showAdvanced && (
+                <div className="advanced-container" style={{ marginTop: '12px' }}>
+                  <div className="section-header">ADVANCED STATS</div>
+
+                  <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '8px' }}>EMOTIONS &amp; DRIVES</div>
+                  <div className="stat-row"><span>AGGRESSION</span><span>{round(selected?.aggression)}</span></div>
+                  <div className="stat-row"><span>FEAR</span><span>{round(selected?.fear)}</span></div>
+                  <div className="stat-row"><span>STRESS</span><span>{round(selected?.stress)}</span></div>
+                  <div className="stat-row"><span>CONFIDENCE</span><span>{round(selected?.confidence)}</span></div>
+                  <div className="stat-row"><span>COMFORT</span><span>{round(selected?.comfort)}</span></div>
+                  <div className="stat-row"><span>CURIOSITY</span><span>{round(selected?.curiosity)}</span></div>
+                  <div className="stat-row"><span>FRUSTRATION</span><span>{round(selected?.frustration)}</span></div>
+                  <div className="stat-row"><span>BOREDOM</span><span>{round(selected?.boredom)}</span></div>
+                  <div className="stat-row"><span>ALERTNESS</span><span>{round(selected?.alertness)}</span></div>
+
+                  <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>BEHAVIORAL TRAITS</div>
+                  <div className="stat-row"><span>BOLDNESS</span><span>{round(selected?.boldness)}</span></div>
+                  <div className="stat-row"><span>PATIENCE</span><span>{round(selected?.patience)}</span></div>
+                  <div className="stat-row"><span>INTELLIGENCE</span><span>{round(selected?.intelligence)}</span></div>
+                  <div className="stat-row"><span>LOYALTY</span><span>{round(selected?.loyalty)}</span></div>
+                  <div className="stat-row"><span>OPPORTUNISM</span><span>{round(selected?.opportunism)}</span></div>
+                  <div className="stat-row"><span>CAUTION</span><span>{round(selected?.caution)}</span></div>
+
+                  <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>SOCIAL GENETICS</div>
+                  <div className="stat-row"><span>PACK AFFINITY</span><span>{round(selected?.pack_affinity)}</span></div>
+                  <div className="stat-row"><span>SUBMISSION TENDENCY</span><span>{round(selected?.submission_tendency)}</span></div>
+                  <div className="stat-row"><span>LEADERSHIP</span><span>{round(selected?.leadership)}</span></div>
+                  <div className="stat-row"><span>EMPATHY</span><span>{round(selected?.empathy)}</span></div>
+                  <div className="stat-row"><span>TOLERANCE</span><span>{round(selected?.tolerance)}</span></div>
+
+                  <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>COMBAT STYLE</div>
+                  <div className="stat-row"><span>FEROCITY</span><span>{round(selected?.ferocity)}</span></div>
+                  <div className="stat-row"><span>DEFENSIVENESS</span><span>{round(selected?.defensiveness)}</span></div>
+                  <div className="stat-row"><span>TARGET FOCUS</span><span>{round(selected?.target_focus)}</span></div>
+                  <div className="stat-row"><span>AMBUSH TENDENCY</span><span>{round(selected?.ambush_tendency)}</span></div>
+                  <div className="stat-row"><span>RISK ASSESSMENT</span><span>{round(selected?.risk_assessment)}</span></div>
+
+                  <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>PERCEPTION</div>
+                  <div className="stat-row"><span>VISION RANGE</span><span>{round(selected?.vision_range)}</span></div>
+                  <div className="stat-row"><span>NIGHT VISION</span><span>{round(selected?.night_vision)}</span></div>
+                  <div className="stat-row"><span>SMELL SENSITIVITY</span><span>{round(selected?.smell_sensitivity)}</span></div>
+                  <div className="stat-row"><span>HEARING SENSITIVITY</span><span>{round(selected?.hearing_sensitivity)}</span></div>
+
+                  <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>URGES</div>
+                  <div className="stat-row"><span>HUNGER URGE</span><span>{round(selected?.hunger_urge)}</span></div>
+                  <div className="stat-row"><span>THIRST URGE</span><span>{round(selected?.thirst_urge)}</span></div>
+                  <div className="stat-row"><span>REST URGE</span><span>{round(selected?.rest_urge)}</span></div>
+                  <div className="stat-row"><span>SAFETY URGE</span><span>{round(selected?.safety_urge)}</span></div>
+                  <div className="stat-row"><span>SOCIAL URGE</span><span>{round(selected?.social_urge)}</span></div>
+                  <div className="stat-row"><span>ESCAPE URGE</span><span>{round(selected?.escape_urge)}</span></div>
+
+                  <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>STATE &amp; MISC</div>
+                  <div className="stat-row"><span>STANCE</span><span>{selected?.stance || 'neutral'}</span></div>
+                  <div className="stat-row"><span>GOAL PRIORITY</span><span>{round(selected?.goal_priority)}</span></div>
+                  <div className="stat-row"><span>ENGAGED</span><span>{selected?.engaged ? 'YES' : 'NO'}</span></div>
+                  <div className="stat-row"><span>REACTIVITY</span><span>{round(selected?.reactivity)}</span></div>
+                  <div className="stat-row"><span>COMMITMENT</span><span>{round(selected?.commitment)}</span></div>
+                  <div className="stat-row"><span>THREAT LEVEL</span><span>{round(selected?.threat_level)}</span></div>
+                </div>
+              )}
             </div>
           </div>
         </div>
