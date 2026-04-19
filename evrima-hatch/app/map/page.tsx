@@ -139,7 +139,6 @@ export default function MapPage() {
     channelRef.current = channel;
   };
 
-  // Re-run sprite update when ownPosition changes
   useEffect(() => {
     if (ownPosition) {
       console.log("🔄 ownPosition changed - re-running sprite update");
@@ -178,13 +177,14 @@ export default function MapPage() {
     ];
     await PIXI.Assets.load(spritePaths).catch(() => {});
 
+    // Background added LAST so sprites are on top
     try {
       const texture = await PIXI.Assets.load('/islemap.png');
       const bg = new PIXI.Sprite(texture);
       bg.anchor.set(0.5);
       bg.x = 1250;
       bg.y = 1000;
-      viewport.addChild(bg);
+      viewport.addChild(bg);   // background last
       console.log('✅ MAP BACKGROUND LOADED at center (1250,1000)');
     } catch (err) {
       console.error('❌ MAP BACKGROUND FAILED', err);
@@ -256,9 +256,10 @@ export default function MapPage() {
 
         sprite = PIXI.Sprite.from(path);
         sprite.anchor.set(0.5);
-        sprite.scale.set(0.9);
+        sprite.scale.set(1.5); // larger for testing visibility
         viewport.addChild(sprite);
         spritesRef.current.set(currentDinoId, sprite);
+        console.log("✅ Own sprite added to viewport");
       }
 
       if (ownPosition) {
@@ -266,13 +267,13 @@ export default function MapPage() {
         sprite.y = ownPosition.y;
         console.log(`📍 Own dino position updated to (${ownPosition.x}, ${ownPosition.y})`);
       } else {
-        console.log("⚠️ Own position not yet available - sprite created at default position");
+        console.log("⚠️ Own position not yet available");
       }
     } else {
-      console.log("❌ Own dino block skipped - missing selectedDino or currentDinoId");
+      console.log("❌ Own dino block skipped");
     }
 
-    // Nearby
+    // Nearby (for future)
     nearbyData.forEach((item) => {
       const dinoId = item.dino_id.toString();
       let sprite = spritesRef.current.get(dinoId);
