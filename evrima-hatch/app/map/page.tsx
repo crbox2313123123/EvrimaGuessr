@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
+import { leaveMap } from '../../server/actions';   // ← NEW IMPORT
 
 export default function MapPage() {
   const [instanceId, setInstanceId] = useState<string | null>(null);
@@ -10,6 +11,8 @@ export default function MapPage() {
   const [selectedDino, setSelectedDino] = useState<any>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [revealed, setRevealed] = useState(false);
+
   const router = useRouter();
 
   const round = (val: any) => Math.round(Number(val) || 0);
@@ -18,7 +21,7 @@ export default function MapPage() {
     checkMapPermission();
   }, []);
 
-  // Auto-refresh every 4 seconds
+  // Auto-refresh every 4 seconds (now also reacts to other players leaving)
   useEffect(() => {
     if (!instanceId || !currentUserId) return;
     const interval = setInterval(() => {
@@ -70,11 +73,7 @@ export default function MapPage() {
     }
   };
 
-  // ─────────────────────────────────────────────────────────────
-  // NEW ROBUST VERSION — no nested join
-  // ─────────────────────────────────────────────────────────────
   const loadPlayersInInstance = async (instId: string, userId: string) => {
-    // Step 1: Get all presence rows in this instance
     const { data: presenceRows, error } = await supabase
       .from('evrima_player_presence')
       .select('user_id, dino_id')
@@ -87,9 +86,11 @@ export default function MapPage() {
 
     console.log(`📡 Raw presence rows found: ${presenceRows?.length || 0}`);
 
-    if (!presenceRows || presenceRows.length === 0) return;
+    if (!presenceRows || presenceRows.length === 0) {
+      setPlayers([]);
+      return;
+    }
 
-    // Step 2: Get only OTHER users
     const otherPresences = presenceRows.filter(p => p.user_id !== userId);
     console.log(`📡 Other players in instance: ${otherPresences.length}`);
 
@@ -98,7 +99,6 @@ export default function MapPage() {
       return;
     }
 
-    // Step 3: Fetch dino data for the other players
     const otherDinoIds = otherPresences.map(p => p.dino_id).filter(Boolean);
 
     const { data: otherDinos } = await supabase
@@ -106,7 +106,6 @@ export default function MapPage() {
       .select('id, dino_name, stage, growth, species_key')
       .in('id', otherDinoIds);
 
-    // Step 4: Combine presence + dino data
     const combined = otherPresences.map(p => {
       const dino = otherDinos?.find(d => d.id === p.dino_id);
       return {
@@ -117,6 +116,31 @@ export default function MapPage() {
 
     setPlayers(combined);
     console.log(`✅ Final other players loaded: ${combined.length}`);
+  };
+
+  // DEBUG REVEAL BUTTON
+  const handleRevealNearby = () => {
+    console.log('🔍 REVEAL NEARBY DINOSAUR clicked');
+    console.log('Full nearby dino data:', players);
+    setRevealed(true);
+  };
+
+  // NEW: Proper leave logic
+  const handleReturnToHub = async () => {
+    if (!currentUserId) {
+      router.push('/hub');
+      return;
+    }
+
+    console.log('🚪 Leaving map...');
+    try {
+      await leaveMap();           // ← Calls the new server action
+      console.log('✅ Successfully left map');
+    } catch (err) {
+      console.error('⚠️ Leave map failed (still navigating):', err);
+    }
+
+    router.push('/hub');
   };
 
   if (loading) return <div className="loading">CHECKING MAP ACCESS...</div>;
@@ -139,16 +163,29 @@ export default function MapPage() {
         .main { display: grid; grid-template-columns: 340px 1fr 340px; gap: 24px; padding: 24px 40px; min-height: 0; background: #050f05; }
         .panel { border: 4px solid #0f0; box-shadow: 0 0 12px #0f0; background: #112211; display: flex; flex-direction: column; min-height: 0; text-transform: uppercase; letter-spacing: 2px; overflow: hidden; }
         .scroll { overflow-y: auto; flex: 1; min-height: 0; padding: 12px; }
-        .map-area { background: #0a1f0a; border: 4px solid #0f0; position: relative; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: #0f0; text-shadow: 0 0 12px #0f0; overflow: hidden; }
+        .map-area { background: #0a1f0a; border: 4px solid #0f0; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.4rem; color: #0f0; text-shadow: 0 0 12px #0f0; overflow: hidden; gap: 20px; }
         .map-area::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle, rgba(15,240,0,0.1) 0%, transparent 70%); pointer-events: none; }
         .header-text { text-shadow: 0 0 8px #0f0; letter-spacing: 3px; }
         .loading { height: 100vh; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; text-shadow: 0 0 12px #0f0; }
         .footer { position: relative; z-index: 10000; display: flex; justify-content: center; align-items: center; padding: 12px; border-top: 4px solid #0f0; font-size: 0.9rem; gap: 12px; }
         .player-item { padding: 10px 14px; border-bottom: 1px dotted #0f0; font-size: 0.82rem; color: #0ff; }
+        .reveal-btn {
+          border: 3px solid #ff0;
+          background: #112211;
+          color: #ff0;
+          padding: 14px 24px;
+          font-family: 'Press Start 2P', system-ui;
+          font-size: 0.95rem;
+          text-transform: uppercase;
+          letter-spacing: 2px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .reveal-btn:hover { background: #ff0; color: #111133; }
         @media (max-width: 900px) {
           .root { grid-template-rows: 70px 1fr 80px; }
           .main { grid-template-columns: 1fr; gap: 16px; padding: 16px 12px; }
-          .map-area { min-height: 320px; font-size: 1.1rem; }
+          .map-area { min-height: 340px; font-size: 1.1rem; }
         }
       `}</style>
 
@@ -185,16 +222,24 @@ export default function MapPage() {
             </div>
           </div>
 
-          {/* CENTER - MAP AREA */}
+          {/* CENTER - MAP AREA WITH REVEAL BUTTON */}
           <div className="panel map-area">
             <div style={{ textAlign: 'center', zIndex: 2 }}>
               🌲 <strong>FOREST</strong> 🌲<br />
               <span style={{ fontSize: '0.9rem', opacity: 0.6 }}>LIVE SIMULATION AREA</span>
-              <div style={{ marginTop: '40px', fontSize: '1rem', opacity: 0.4 }}>
+              <div style={{ marginTop: '30px', fontSize: '1rem', opacity: 0.4 }}>
                 [ FUTURE MAP CANVAS / LEAFLET GOES HERE ]<br />
                 <strong>{players.length + 1}</strong> DINOS IN THIS INSTANCE
               </div>
             </div>
+
+            <button 
+              className="reveal-btn"
+              onClick={handleRevealNearby}
+              style={{ zIndex: 3 }}
+            >
+              REVEAL NEARBY DINOSAUR
+            </button>
           </div>
 
           {/* RIGHT - MAP INFO */}
@@ -212,14 +257,21 @@ export default function MapPage() {
               </div>
               
               {players.length > 0 ? (
-                players.map((p: any, i: number) => (
-                  <div key={i} className="player-item">
-                    {p.evrima_player_dinos?.dino_name || 'Unknown'} 
-                    <span style={{ float: 'right', opacity: 0.7, fontSize: '0.75rem' }}>
-                      {p.evrima_player_dinos?.stage} • {round(p.evrima_player_dinos?.growth)}%
-                    </span>
-                  </div>
-                ))
+                players.map((p: any, i: number) => {
+                  const dino = p.evrima_player_dinos;
+                  const displayName = revealed && dino?.dino_name ? dino.dino_name : 'Unknown';
+                  const displayStage = revealed && dino?.stage ? dino.stage : '???';
+                  const displayGrowth = revealed && dino?.growth ? round(dino.growth) : 0;
+
+                  return (
+                    <div key={i} className="player-item">
+                      {displayName} 
+                      <span style={{ float: 'right', opacity: 0.7, fontSize: '0.75rem' }}>
+                        {displayStage} • {displayGrowth}%
+                      </span>
+                    </div>
+                  );
+                })
               ) : (
                 <div style={{ opacity: 0.4, fontSize: '0.8rem', textAlign: 'center', padding: '20px 0' }}>
                   NO OTHER PLAYERS YET
@@ -229,7 +281,7 @@ export default function MapPage() {
               <div style={{ marginTop: '40px' }}>
                 <button 
                   style={{ width: '100%', padding: '14px', background: '#112211', border: '3px solid #0ff', color: '#0ff', cursor: 'pointer', fontFamily: 'Press Start 2P, system-ui', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '2px' }}
-                  onClick={() => router.push('/hub')}
+                  onClick={handleReturnToHub}   {/* ← NOW CALLS leaveMap */}
                 >
                   ← RETURN TO HUB
                 </button>
