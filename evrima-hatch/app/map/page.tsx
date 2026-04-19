@@ -29,10 +29,7 @@ export default function MapPage() {
 
   const checkMapPermission = async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      router.push('/hub');
-      return;
-    }
+    if (!session) return router.push('/hub');
 
     const userId = session.user.id;
     setCurrentUserId(userId);
@@ -44,8 +41,7 @@ export default function MapPage() {
       .single();
 
     if (!state?.current_map_key || state.current_map_key !== 'forest') {
-      router.push('/hub');
-      return;
+      return router.push('/hub');
     }
 
     if (state.selected_dino_id) {
@@ -74,35 +70,53 @@ export default function MapPage() {
     }
   };
 
-  // FIXED: Correct Supabase join syntax using dino_id foreign key
+  // ─────────────────────────────────────────────────────────────
+  // NEW ROBUST VERSION — no nested join
+  // ─────────────────────────────────────────────────────────────
   const loadPlayersInInstance = async (instId: string, userId: string) => {
-    const { data: allPlayers, error } = await supabase
+    // Step 1: Get all presence rows in this instance
+    const { data: presenceRows, error } = await supabase
       .from('evrima_player_presence')
-      .select(`
-        user_id,
-        evrima_player_dinos:dino_id (
-          dino_name,
-          stage,
-          growth,
-          species_key
-        )
-      `)
+      .select('user_id, dino_id')
       .eq('instance_id', instId);
 
     if (error) {
-      console.error('❌ Error loading players:', error);
+      console.error('❌ Error loading presence:', error);
       return;
     }
 
-    if (allPlayers) {
-      // Filter out self + ensure dino data exists
-      const others = allPlayers.filter((p: any) => 
-        p.user_id !== userId && p.evrima_player_dinos
-      );
-      
-      setPlayers(others);
-      console.log(`📡 Found ${allPlayers.length} total presence rows → ${others.length} other players in instance ${instId}`);
+    console.log(`📡 Raw presence rows found: ${presenceRows?.length || 0}`);
+
+    if (!presenceRows || presenceRows.length === 0) return;
+
+    // Step 2: Get only OTHER users
+    const otherPresences = presenceRows.filter(p => p.user_id !== userId);
+    console.log(`📡 Other players in instance: ${otherPresences.length}`);
+
+    if (otherPresences.length === 0) {
+      setPlayers([]);
+      return;
     }
+
+    // Step 3: Fetch dino data for the other players
+    const otherDinoIds = otherPresences.map(p => p.dino_id).filter(Boolean);
+
+    const { data: otherDinos } = await supabase
+      .from('evrima_player_dinos')
+      .select('id, dino_name, stage, growth, species_key')
+      .in('id', otherDinoIds);
+
+    // Step 4: Combine presence + dino data
+    const combined = otherPresences.map(p => {
+      const dino = otherDinos?.find(d => d.id === p.dino_id);
+      return {
+        user_id: p.user_id,
+        evrima_player_dinos: dino || null
+      };
+    });
+
+    setPlayers(combined);
+    console.log(`✅ Final other players loaded: ${combined.length}`);
   };
 
   if (loading) return <div className="loading">CHECKING MAP ACCESS...</div>;
@@ -121,92 +135,20 @@ export default function MapPage() {
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #0f0; border-radius: 20px; }
-        .root { 
-          min-height: 100vh; 
-          display: grid; 
-          grid-template-rows: 80px 1fr 80px; 
-          position: relative;
-        }
-        .main {
-          display: grid;
-          grid-template-columns: 340px 1fr 340px;
-          gap: 24px;
-          padding: 24px 40px;
-          min-height: 0;
-          background: #050f05;
-        }
-        .panel {
-          border: 4px solid #0f0;
-          box-shadow: 0 0 12px #0f0;
-          background: #112211;
-          display: flex;
-          flex-direction: column;
-          min-height: 0;
-          text-transform: uppercase;
-          letter-spacing: 2px;
-          overflow: hidden;
-        }
-        .scroll { 
-          overflow-y: auto; 
-          flex: 1; 
-          min-height: 0; 
-          padding: 12px; 
-        }
-        .map-area {
-          background: #0a1f0a;
-          border: 4px solid #0f0;
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 1.4rem;
-          color: #0f0;
-          text-shadow: 0 0 12px #0f0;
-          overflow: hidden;
-        }
-        .map-area::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: radial-gradient(circle, rgba(15,240,0,0.1) 0%, transparent 70%);
-          pointer-events: none;
-        }
-        .header-text {
-          text-shadow: 0 0 8px #0f0;
-          letter-spacing: 3px;
-        }
-        .loading {
-          height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 1.4rem;
-          text-shadow: 0 0 12px #0f0;
-        }
-        .footer {
-          position: relative;
-          z-index: 10000;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          padding: 12px;
-          border-top: 4px solid #0f0;
-          font-size: 0.9rem;
-          gap: 12px;
-        }
-        .player-item {
-          padding: 10px 14px;
-          border-bottom: 1px dotted #0f0;
-          font-size: 0.82rem;
-          color: #0ff;
-        }
+        .root { min-height: 100vh; display: grid; grid-template-rows: 80px 1fr 80px; position: relative; }
+        .main { display: grid; grid-template-columns: 340px 1fr 340px; gap: 24px; padding: 24px 40px; min-height: 0; background: #050f05; }
+        .panel { border: 4px solid #0f0; box-shadow: 0 0 12px #0f0; background: #112211; display: flex; flex-direction: column; min-height: 0; text-transform: uppercase; letter-spacing: 2px; overflow: hidden; }
+        .scroll { overflow-y: auto; flex: 1; min-height: 0; padding: 12px; }
+        .map-area { background: #0a1f0a; border: 4px solid #0f0; position: relative; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: #0f0; text-shadow: 0 0 12px #0f0; overflow: hidden; }
+        .map-area::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle, rgba(15,240,0,0.1) 0%, transparent 70%); pointer-events: none; }
+        .header-text { text-shadow: 0 0 8px #0f0; letter-spacing: 3px; }
+        .loading { height: 100vh; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; text-shadow: 0 0 12px #0f0; }
+        .footer { position: relative; z-index: 10000; display: flex; justify-content: center; align-items: center; padding: 12px; border-top: 4px solid #0f0; font-size: 0.9rem; gap: 12px; }
+        .player-item { padding: 10px 14px; border-bottom: 1px dotted #0f0; font-size: 0.82rem; color: #0ff; }
         @media (max-width: 900px) {
           .root { grid-template-rows: 70px 1fr 80px; }
           .main { grid-template-columns: 1fr; gap: 16px; padding: 16px 12px; }
           .map-area { min-height: 320px; font-size: 1.1rem; }
-        }
-        @media (max-width: 600px) {
-          .main { padding: 12px 8px; }
         }
       `}</style>
 
