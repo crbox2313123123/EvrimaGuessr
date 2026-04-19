@@ -145,55 +145,47 @@ export default function MapPage() {
 
   }, [instanceId, currentDinoId]);
 
-  const initPixi = async () => {
-    const container = pixiContainerRef.current!;
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+const initPixi = async () => {
+  const container = pixiContainerRef.current!;
+  if (!container) return;
 
-    const app = new PIXI.Application({
-      resizeTo: container,
-      backgroundColor: 0x0a1f0a,
-      antialias: true,
-    });
+  // ✅ v8 REQUIRED pattern
+  const app = new PIXI.Application();
+  await app.init({
+    resizeTo: container,
+    backgroundColor: 0x0a1f0a,
+    antialias: true,
+  });
 
-    container.appendChild(app.canvas);
-    appRef.current = app;
+  // ✅ NOW it's safe
+  container.appendChild(app.canvas);
+  appRef.current = app;
 
-    // -------- LOAD MAP TEXTURE (SAFE) --------
-    try {
-      const texture = await PIXI.Assets.load('/islemap.png');
+  console.log('✅ PIXI INITIALIZED');
 
-      const bg = new PIXI.Sprite(texture);
+  // -------- LOAD MAP TEXTURE --------
+  try {
+    const texture = await PIXI.Assets.load('/islemap.png');
 
-      // scale to fit screen
-      const scaleX = app.screen.width / bg.texture.width;
-      const scaleY = app.screen.height / bg.texture.height;
-      const scale = Math.max(scaleX, scaleY);
+    const bg = new PIXI.Sprite(texture);
 
-      bg.scale.set(scale);
-      bg.anchor.set(0.5);
-      bg.x = app.screen.width / 2;
-      bg.y = app.screen.height / 2;
+    const scaleX = app.screen.width / bg.texture.width;
+    const scaleY = app.screen.height / bg.texture.height;
+    const scale = Math.max(scaleX, scaleY);
 
-      app.stage.addChild(bg);
+    bg.scale.set(scale);
+    bg.anchor.set(0.5);
+    bg.x = app.screen.width / 2;
+    bg.y = app.screen.height / 2;
 
-      console.log('✅ MAP LOADED');
+    app.stage.addChild(bg);
 
-    } catch (err) {
-      console.error('❌ MAP FAILED', err);
-    }
+    console.log('✅ MAP LOADED');
 
-    // -------- RESIZE HANDLER --------
-    const resize = () => {
-      app.renderer.resize(container.clientWidth, container.clientHeight);
-    };
-
-    window.addEventListener('resize', resize);
-
-    app.ticker.add(() => {
-      // future: update player positions here
-    });
-  };
+  } catch (err) {
+    console.error('❌ MAP FAILED', err);
+  }
+};
 
   // -------------------------------
   // ACTIONS
