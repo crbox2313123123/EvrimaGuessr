@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import { leaveMap } from '../../server/actions';
@@ -16,19 +16,28 @@ export default function MapPage() {
   const [isLive, setIsLive] = useState(false);
 
   const router = useRouter();
+  const channelRef = useRef<any>(null);   // ← Prevents duplicate subscriptions
 
   const round = (val: any) => Math.round(Number(val) || 0);
 
   useEffect(() => {
+    console.log('🚀 [MAP] Component mounted');
     checkMapPermission();
+    return () => {
+      console.log('🧹 [MAP] Component unmounting - cleaning up realtime');
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+    };
   }, []);
 
   const checkMapPermission = async () => {
-    console.log('🔍 [MAP] Starting checkMapPermission...');
+    console.log('🔍 [MAP] === checkMapPermission START ===');
     setError(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: authError } = await supabase.auth.getSession();
+      if (authError) throw new Error(`Auth error: ${authError.message}`);
       if (!session) {
         console.log('🚫 [MAP] No session → redirecting to /hub');
         return router.push('/hub');
@@ -36,9 +45,8 @@ export default function MapPage() {
 
       const userId = session.user.id;
       setCurrentUserId(userId);
-      console.log(`🔑 [MAP] Authenticated user: ${userId.slice(0, 8)}...`);
+      console.log(`🔑 [MAP] Auth successful - user: ${userId.slice(0, 8)}...`);
 
-      // 1. Check player state
       const { data: state, error: stateError } = await supabase
         .from('evrima_player_state')
         .select('current_map_key, selected_dino_id')
@@ -51,7 +59,6 @@ export default function MapPage() {
         return router.push('/hub');
       }
 
-      // 2. Load selected dino
       if (state.selected_dino_id) {
         const { data: dino } = await supabase
           .from('evrima_player_dinos')
@@ -61,12 +68,10 @@ export default function MapPage() {
         if (dino) setSelectedDino(dino);
       }
 
-      // 3. Load current instance + players
       await loadCurrentInstance(userId);
-
       console.log('✅ [MAP] Permission check completed successfully');
     } catch (err: any) {
-      console.error('❌ [MAP] checkMapPermission failed:', err);
+      console.error('❌ [MAP] checkMapPermission FAILED:', err);
       setError(err.message || 'Unknown error while loading map');
     } finally {
       setLoading(false);
@@ -74,6 +79,7 @@ export default function MapPage() {
   };
 
   const loadCurrentInstance = async (userId: string) => {
+    console.log('[MAP] loadCurrentInstance called');
     const { data: presence } = await supabase
       .from('evrima_player_presence')
       .select('instance_id')
@@ -91,6 +97,8 @@ export default function MapPage() {
   };
 
   const loadPlayersInInstance = async (instId: string, userId: string) => {
+    console.log(`🔄 [MAP] loadPlayersInInstance called for ${instId}`);
+
     const { data: presenceRows, error } = await supabase
       .from('evrima_player_presence')
       .select('user_id, dino_id')
@@ -102,6 +110,8 @@ export default function MapPage() {
     }
 
     const otherPresences = presenceRows?.filter(p => p.user_id !== userId) || [];
+    console.log(`📊 [MAP] Other players: ${otherPresences.length}`);
+
     if (otherPresences.length === 0) {
       setPlayers([]);
       return;
@@ -120,37 +130,54 @@ export default function MapPage() {
     }));
 
     setPlayers(combined);
+    console.log(`✅ [MAP] Players updated: ${combined.length}`);
   };
 
   const setupRealtimeSubscription = (instId: string, userId: string) => {
+    // Prevent duplicate subscriptions
+    if (channelRef.current) {
+      console.log('⚠️ [MAP REALTIME] Subscription already active - skipping');
+      return;
+    }
+
+    console.log(`📡 [MAP REALTIME] Creating subscription for instance ${instId}`);
+
     const channel = supabase
       .channel(`map-presence:${instId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'evrima_player_presence',
-        filter: `instance_id=eq.${instId}`,
-      }, () => {
-        console.log('🔴 [MAP REALTIME] Change detected – refreshing');
-        loadPlayersInInstance(instId, userId);
-      })
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'evrima_player_presence',
+          filter: `instance_id=eq.${instId}`,
+        },
+        (payload) => {
+          console.log('🔴 [MAP REALTIME] Change detected!', payload.eventType);
+          loadPlayersInInstance(instId, userId);
+        }
+      )
       .subscribe((status) => {
+        console.log(`📡 [MAP REALTIME] Status: ${status}`);
         if (status === 'SUBSCRIBED') setIsLive(true);
       });
 
-    return () => supabase.removeChannel(channel);
+    channelRef.current = channel;
   };
 
   const handleRevealNearby = () => {
-    console.log('🔍 REVEAL NEARBY DINOSAUR clicked');
+    console.log('🔍 [MAP] REVEAL NEARBY DINOSAUR clicked');
+    console.log('Current players data:', players);
     setRevealed(true);
   };
 
   const handleReturnToHub = async () => {
+    console.log('🚪 [MAP] RETURN TO HUB clicked');
     try {
       await leaveMap();
+      console.log('✅ [MAP] leaveMap completed');
     } catch (err) {
-      console.error('⚠️ Leave map failed:', err);
+      console.error('⚠️ [MAP] leaveMap failed:', err);
     }
     router.push('/hub');
   };
@@ -196,8 +223,8 @@ export default function MapPage() {
         .loading { height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.4rem; text-shadow: 0 0 12px #0f0; }
         .footer { position: relative; z-index: 10000; display: flex; justify-content: center; align-items: center; padding: 12px; border-top: 4px solid #0f0; font-size: 0.9rem; gap: 12px; }
         .player-item { padding: 10px 14px; border-bottom: 1px dotted #0f0; font-size: 0.82rem; color: #0ff; }
-        .reveal-btn, .force-btn { border: 3px solid #ff0; background: #112211; color: #ff0; padding: 14px 24px; font-family: 'Press Start 2P', system-ui; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 2px; cursor: pointer; transition: all 0.2s; }
-        .reveal-btn:hover, .force-btn:hover { background: #ff0; color: #111133; }
+        .reveal-btn { border: 3px solid #ff0; background: #112211; color: #ff0; padding: 14px 24px; font-family: 'Press Start 2P', system-ui; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 2px; cursor: pointer; transition: all 0.2s; }
+        .reveal-btn:hover { background: #ff0; color: #111133; }
         @media (max-width: 900px) {
           .root { grid-template-rows: 70px 1fr 80px; }
           .main { grid-template-columns: 1fr; gap: 16px; padding: 16px 12px; }

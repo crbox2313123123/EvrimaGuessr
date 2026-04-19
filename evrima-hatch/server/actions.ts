@@ -47,19 +47,6 @@
     return data;
   }
 
-export async function leaveMap() {
-  const supabase = await getSupabase();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error('Not authenticated');
-
-  const userId = session.user.id;
-
-  const { error } = await supabase.rpc('leave_map', { p_user_id: userId });
-  if (error) throw new Error(`Leave map failed: ${error.message}`);
-
-  revalidatePath('/map');
-}
-
 
   // ─────────────────────────────────────────────────────────────
   // CLEAR ALL DINOS
@@ -105,23 +92,34 @@ export async function leaveMap() {
   // ─────────────────────────────────────────────────────────────
   // ─────────────────────────────────────────────────────────────
   // ─────────────────────────────────────────────────────────────
-  // ENTER MAP - ATOMIC RPC VERSION (foolproof)
-  export async function enterMap(mapKey: string = 'forest') {
-    const supabase = await getSupabase();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error('Not authenticated');
+export async function enterMap(mapKey: string = 'forest') {
+  const supabase = await getSupabase();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
 
-    const userId = session.user.id;
+  const { data, error } = await supabase.rpc('enter_map', {
+    p_user_id: session.user.id,
+    p_map_key: mapKey
+  });
 
-    const { data, error } = await supabase.rpc('enter_map', {
-      p_user_id: userId,
-      p_map_key: mapKey
-    });
+  if (error) throw new Error(`Failed to join map: ${error.message}`);
 
-    if (error) {
-      throw new Error(`Failed to join map: ${error.message}`);
-    }
+  revalidatePath('/hub');
+  revalidatePath('/map');
+  return data;
+}
 
-    revalidatePath('/map');
-    return data;
-  }
+export async function leaveMap() {
+  const supabase = await getSupabase();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+
+  const { error } = await supabase.rpc('leave_map', {
+    p_user_id: session.user.id
+  });
+
+  if (error) throw new Error(`Leave map failed: ${error.message}`);
+
+  revalidatePath('/hub');
+  revalidatePath('/map');
+}
