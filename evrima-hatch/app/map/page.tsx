@@ -24,6 +24,11 @@ export default function MapPage() {
   const spritesRef = useRef<Map<string, PIXI.Sprite>>(new Map());
   const channelRef = useRef<any>(null);
 
+  // For Paper Mario flip + tilt
+  const lastOwnX = useRef<number>(1250);
+  const lastOwnY = useRef<number>(1000);
+  const flipCooldown = useRef<number>(0);
+
   const round = (val: any) => Math.round(Number(val) || 0);
 
   useEffect(() => {
@@ -131,7 +136,7 @@ export default function MapPage() {
     channelRef.current = channel;
   };
 
-  // Robust own dino sprite management
+  // Reactive own dino sprite (full GPT architecture)
   useEffect(() => {
     if (!viewportRef.current || !selectedDino || !currentDinoId || !ownPosition) return;
 
@@ -149,6 +154,20 @@ export default function MapPage() {
       viewport.addChild(sprite);
       spritesRef.current.set(currentDinoId, sprite);
     }
+
+    // Paper Mario flip with cooldown
+    const dx = ownPosition.x - lastOwnX.current;
+    if (Math.abs(dx) > 3 && Date.now() > flipCooldown.current) {
+      sprite.scale.x = dx > 0 ? 0.9 : -0.9;
+      flipCooldown.current = Date.now() + 250;
+    }
+    lastOwnX.current = ownPosition.x;
+
+    // Subtle walking tilt
+    const dy = ownPosition.y - lastOwnY.current;
+    const tilt = Math.sin(Date.now() / 200) * 0.03 * Math.min(Math.abs(dy) / 10, 1);
+    sprite.rotation = tilt;
+    lastOwnY.current = ownPosition.y;
 
     sprite.x = ownPosition.x;
     sprite.y = ownPosition.y;
@@ -176,7 +195,7 @@ export default function MapPage() {
     app.stage.addChild(viewport);
     viewportRef.current = viewport;
 
-    // Preload
+    // Preload sprites
     const spritePaths = [
       '/sprites/templates/raptor_baby_sprite.png',
       '/sprites/templates/raptor_juvenile_sprite.png',
@@ -186,7 +205,7 @@ export default function MapPage() {
     ];
     await PIXI.Assets.load(spritePaths).catch(() => {});
 
-    // Background last
+    // Background (added last)
     try {
       const texture = await PIXI.Assets.load('/islemap.png');
       const bg = new PIXI.Sprite(texture);
@@ -198,10 +217,13 @@ export default function MapPage() {
       console.error('❌ MAP BACKGROUND FAILED', err);
     }
 
-    // Camera
+    // Camera starts moderately zoomed in, centered on map
     viewport.x = app.screen.width / 2 - 1250 * 0.8;
     viewport.y = app.screen.height / 2 - 1000 * 0.8;
     viewport.scale.set(0.8);
+
+    // Smooth zoom + pan to own dino
+    // (this will be triggered once ownPosition is ready)
 
     // Controls
     let isDragging = false;
