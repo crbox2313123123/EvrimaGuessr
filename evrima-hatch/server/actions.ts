@@ -93,7 +93,6 @@ export async function enterMap(mapKey: string) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
 
-  // mapKey is now required (no default)
   if (!mapKey) throw new Error('mapKey is required');
 
   const { data, error } = await supabase.rpc('enter_map', {
@@ -101,13 +100,15 @@ export async function enterMap(mapKey: string) {
     p_map_key: mapKey
   });
 
-  if (error) throw new Error(`Failed to join map: ${error.message}`);
+  if (error) {
+    console.error("=== ENTER_MAP RPC ERROR ===", error);
+    throw new Error(`Failed to join map: ${error.message}`);
+  }
 
   revalidatePath('/hub');
   revalidatePath('/map');
   return data;
 }
-
 // ─────────────────────────────────────────────────────────────
 // LEAVE MAP
 export async function leaveMap() {
