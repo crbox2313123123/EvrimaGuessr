@@ -134,7 +134,7 @@ export default function MapPage() {
   };
 
   // -------------------------------
-  // PIXI INIT (FIXED PROPERLY)
+  // PIXI INIT
   // -------------------------------
   useEffect(() => {
     if (!pixiContainerRef.current) return;
@@ -145,47 +145,44 @@ export default function MapPage() {
 
   }, [instanceId, currentDinoId]);
 
-const initPixi = async () => {
-  const container = pixiContainerRef.current!;
-  if (!container) return;
+  const initPixi = async () => {
+    const container = pixiContainerRef.current!;
+    if (!container) return;
 
-  // ✅ v8 REQUIRED pattern
-  const app = new PIXI.Application();
-  await app.init({
-    resizeTo: container,
-    backgroundColor: 0x0a1f0a,
-    antialias: true,
-  });
+    // Initialize PixiJS v8+
+    const app = new PIXI.Application();
+    await app.init({
+      resizeTo: container,
+      backgroundColor: 0x0a1f0a,
+      antialias: true,
+    });
 
-  // ✅ NOW it's safe
-  container.appendChild(app.canvas);
-  appRef.current = app;
+    container.appendChild(app.canvas);
+    appRef.current = app;
 
-  console.log('✅ PIXI INITIALIZED');
+    console.log('✅ PIXI INITIALIZED');
 
-  // -------- LOAD MAP TEXTURE --------
-  try {
-    const texture = await PIXI.Assets.load('/islemap.png');
+    // Load your existing map image (keep your naming convention)
+    try {
+      const texture = await PIXI.Assets.load('/islemap.png');   // your current image name
 
-    const bg = new PIXI.Sprite(texture);
+      const bg = new PIXI.Sprite(texture);
+      const scaleX = app.screen.width / bg.texture.width;
+      const scaleY = app.screen.height / bg.texture.height;
+      const scale = Math.max(scaleX, scaleY);
 
-    const scaleX = app.screen.width / bg.texture.width;
-    const scaleY = app.screen.height / bg.texture.height;
-    const scale = Math.max(scaleX, scaleY);
+      bg.scale.set(scale);
+      bg.anchor.set(0.5);
+      bg.x = app.screen.width / 2;
+      bg.y = app.screen.height / 2;
 
-    bg.scale.set(scale);
-    bg.anchor.set(0.5);
-    bg.x = app.screen.width / 2;
-    bg.y = app.screen.height / 2;
+      app.stage.addChild(bg);
 
-    app.stage.addChild(bg);
-
-    console.log('✅ MAP LOADED');
-
-  } catch (err) {
-    console.error('❌ MAP FAILED', err);
-  }
-};
+      console.log('✅ MAP BACKGROUND LOADED');
+    } catch (err) {
+      console.error('❌ Failed to load map background:', err);
+    }
+  };
 
   // -------------------------------
   // ACTIONS
