@@ -237,16 +237,13 @@ export default function HubPage() {
     return () => clearInterval(interval);
   }, [userId]);
 
-  // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (optionsButtonRef.current && !optionsButtonRef.current.contains(e.target as Node)) {
         setShowOptionsMenu(false);
       }
     };
-    if (showOptionsMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    if (showOptionsMenu) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showOptionsMenu]);
 
@@ -541,15 +538,17 @@ export default function HubPage() {
           padding-right: 8px;
         }
 
-        /* Footer button */
+        /* Footer with high z-index */
         .footer-buttons {
+          position: relative;
+          z-index: 10000;
           display: flex;
           justify-content: center;
           padding: 12px;
           border-top: 4px solid #0f0;
         }
 
-        /* Context menu */
+        /* Context menu - very high z-index */
         .options-menu {
           position: absolute;
           bottom: 100%;
@@ -557,10 +556,10 @@ export default function HubPage() {
           transform: translateX(-50%);
           background: #111133;
           border: 4px solid #0f0;
-          box-shadow: 0 0 20px #0f0;
+          box-shadow: 0 0 25px #0f0;
           padding: 8px 0;
           min-width: 280px;
-          z-index: 1000;
+          z-index: 99999;
           display: flex;
           flex-direction: column;
           gap: 4px;
@@ -779,8 +778,8 @@ export default function HubPage() {
           </div>
         </div>
 
-        {/* FOOTER - single OPTIONS button */}
-        <div className="panel footer-buttons" style={{ position: 'relative' }}>
+        {/* FOOTER - single OPTIONS button with high z-index */}
+        <div className="panel footer-buttons" style={{ position: 'relative', zIndex: 10000 }}>
           <button 
             ref={optionsButtonRef}
             className="btn" 
