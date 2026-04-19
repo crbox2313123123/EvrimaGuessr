@@ -499,7 +499,13 @@ export default function HubPage() {
           text-shadow: 0 0 12px #0f0;
         }
 
-        /* ================ MOBILE IMPROVEMENTS ================ */
+        /* Desktop: Advanced stats scroll internally so center card doesn't move */
+        .advanced-container {
+          max-height: 420px;
+          overflow-y: auto;
+        }
+
+        /* MOBILE */
         @media (max-width: 900px) {
           .root { 
             grid-template-rows: 70px auto 80px; 
@@ -529,7 +535,6 @@ export default function HubPage() {
             gap: 6px; 
             font-size: 0.78rem; 
           }
-          /* Footer buttons stack vertically on mobile */
           .footer-buttons {
             flex-direction: column !important;
             gap: 12px !important;
@@ -539,7 +544,6 @@ export default function HubPage() {
             font-size: 0.95rem; 
             width: 100%;
           }
-          /* Dino Bank */
           .dino-bank-panel {
             min-height: 180px;
             max-height: 320px;
@@ -586,7 +590,6 @@ export default function HubPage() {
               </div>
             </div>
 
-            {/* MORE OPTIONS */}
             <div className="panel" style={{ height: '100px', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', textShadow: '0 0 8px #0f0' }}>
               MORE OPTIONS<br/>
               <span style={{ fontSize: '0.7rem', opacity: 0.6 }}>COMING SOON</span>
@@ -649,7 +652,7 @@ export default function HubPage() {
               </div>
 
               {showAdvanced && (
-                <div style={{ marginTop: '12px' }}>
+                <div className="advanced-container" style={{ marginTop: '12px' }}>
                   <div className="section-header">ADVANCED STATS</div>
 
                   <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '8px' }}>EMOTIONS &amp; DRIVES</div>
@@ -712,7 +715,7 @@ export default function HubPage() {
           </div>
         </div>
 
-        {/* FOOTER - buttons stacked vertically on mobile */}
+        {/* FOOTER */}
         <div className="panel footer-buttons" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '10px', borderTop: '4px solid #0f0', flexWrap: 'wrap', padding: '12px' }}>
           <button className="btn" onClick={handleGenerateEgg} disabled={actionLoading}>NEW EGG</button>
           <button className="btn yellow" onClick={handleServerTick} disabled={actionLoading}>SERVER TICK</button>
