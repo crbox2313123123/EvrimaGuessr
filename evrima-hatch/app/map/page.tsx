@@ -104,17 +104,20 @@ export default function MapPage() {
   }, [instanceId, currentUserId, currentDinoId]);
 
   const loadPlayers = async () => {
-    const { data } = await supabase.rpc('get_nearby_dinos', {
+    console.log("🔍 loadPlayers called with:", { 
+      instanceId, 
+      currentUserId, 
+      currentDinoId 
+    });
+
+    const { data, error } = await supabase.rpc('get_nearby_dinos', {
       p_instance_id: instanceId,
       p_observer_user_id: currentUserId,
       p_observer_dino_id: currentDinoId,
       p_reveal_radius: 200
-
-      console.log("📊 RPC result:", { data, error });
-
-    setPlayers(data || []);
-    updateDinoSprites(data || []);
     });
+
+    console.log("📊 RPC result:", { data, error });
 
     setPlayers(data || []);
     updateDinoSprites(data || []);
