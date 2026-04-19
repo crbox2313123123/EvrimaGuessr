@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 
@@ -8,12 +8,26 @@ export default function MapPage() {
   const [instanceId, setInstanceId] = useState<string | null>(null);
   const [players, setPlayers] = useState<any[]>([]);
   const [selectedDino, setSelectedDino] = useState<any>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+
+  const round = (val: any) => Math.round(Number(val) || 0);
 
   useEffect(() => {
     checkMapPermission();
   }, []);
+
+  // Auto-refresh player list every 4 seconds (live feel)
+  useEffect(() => {
+    if (!instanceId || !currentUserId) return;
+
+    const interval = setInterval(() => {
+      loadPlayersInInstance(instanceId, currentUserId);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [instanceId, currentUserId]);
 
   const checkMapPermission = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -23,6 +37,7 @@ export default function MapPage() {
     }
 
     const userId = session.user.id;
+    setCurrentUserId(userId);
 
     const { data: state } = await supabase
       .from('evrima_player_state')
@@ -36,7 +51,7 @@ export default function MapPage() {
       return;
     }
 
-    // Load selected dino for left panel
+    // Load selected dino
     if (state.selected_dino_id) {
       const { data: dino } = await supabase
         .from('evrima_player_dinos')
@@ -55,29 +70,43 @@ export default function MapPage() {
       .from('evrima_player_presence')
       .select(`
         instance_id,
-        evrima_map_instances!inner(id, map_type),
-        evrima_player_dinos!inner(dino_name, stage, growth)
+        evrima_map_instances!inner(id, map_type)
       `)
       .eq('user_id', userId)
       .single();
 
-    if (presence) {
+    if (presence?.instance_id) {
       setInstanceId(presence.instance_id);
-
-      // Load all players in this instance
-      const { data: allPlayers } = await supabase
-        .from('evrima_player_presence')
-        .select(`
-          user_id,
-          evrima_player_dinos!inner(dino_name, stage, growth, species_key)
-        `)
-        .eq('instance_id', presence.instance_id);
-
-      setPlayers(allPlayers || []);
+      await loadPlayersInInstance(presence.instance_id, userId);
+    } else {
+      console.warn('⚠️ No active instance found for user');
     }
   };
 
-  const round = (val: any) => Math.round(Number(val) || 0);
+  // FIXED & OPTIMIZED: Load all players in the same instance + exclude self
+  const loadPlayersInInstance = async (instId: string, userId: string) => {
+    const { data: allPlayers } = await supabase
+      .from('evrima_player_presence')
+      .select(`
+        user_id,
+        evrima_player_dinos!inner(
+          dino_name,
+          stage,
+          growth,
+          species_key
+        )
+      `)
+      .eq('instance_id', instId);
+
+    if (allPlayers) {
+      // Filter out current user + remove any null dinos
+      const others = allPlayers.filter((p: any) => 
+        p.user_id !== userId && p.evrima_player_dinos
+      );
+      setPlayers(others);
+      console.log(`📡 Loaded ${others.length} other dinos in instance ${instId}`);
+    }
+  };
 
   if (loading) return <div className="loading">CHECKING MAP ACCESS...</div>;
 
@@ -87,13 +116,20 @@ export default function MapPage() {
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
         html, body {
           height: 100%;
-          overflow: hidden;
+          overflow: auto;
           background: #0a1f0a;
           color: #0f0;
           font-family: 'Press Start 2P', system-ui;
         }
         * { box-sizing: border-box; }
-        .root { height: 100vh; display: grid; grid-template-rows: 90px 1fr 90px; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #0f0; border-radius: 20px; }
+        .root { 
+          min-height: 100vh; 
+          display: grid; 
+          grid-template-rows: 80px 1fr 80px; 
+          position: relative;
+        }
         .main {
           display: grid;
           grid-template-columns: 340px 1fr 340px;
@@ -111,8 +147,14 @@ export default function MapPage() {
           min-height: 0;
           text-transform: uppercase;
           letter-spacing: 2px;
+          overflow: hidden;
         }
-        .scroll { overflow-y: auto; flex: 1; min-height: 0; padding: 12px; }
+        .scroll { 
+          overflow-y: auto; 
+          flex: 1; 
+          min-height: 0; 
+          padding: 12px; 
+        }
         .map-area {
           background: #0a1f0a;
           border: 4px solid #0f0;
@@ -152,8 +194,57 @@ export default function MapPage() {
           font-size: 1.4rem;
           text-shadow: 0 0 12px #0f0;
         }
+        /* Footer */
+        .footer {
+          position: relative;
+          z-index: 10000;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          padding: 12px;
+          border-top: 4px solid #0f0;
+          font-size: 0.9rem;
+          gap: 12px;
+        }
+        /* Context / player list styling */
+        .player-item {
+          padding: 10px 14px;
+          border-bottom: 1px dotted #0f0;
+          font-size: 0.82rem;
+          color: #0ff;
+        }
+        /* Desktop: panels flush */
+        .dino-panel, .info-panel {
+          max-height: 680px;
+        }
+        /* MOBILE RESPONSIVE - identical logic to hub page */
         @media (max-width: 900px) {
-          .main { grid-template-columns: 1fr; gap: 16px; padding: 16px; }
+          .root {
+            grid-template-rows: 70px 1fr 80px;
+            min-height: 100vh;
+          }
+          .main {
+            grid-template-columns: 1fr;
+            gap: 16px;
+            padding: 16px 12px;
+          }
+          .panel {
+            min-height: auto;
+            border-width: 3px;
+          }
+          .map-area {
+            min-height: 320px;
+            font-size: 1.1rem;
+          }
+          .dino-panel, .info-panel {
+            max-height: none;
+          }
+          .scroll { padding: 10px; }
+        }
+        @media (max-width: 600px) {
+          .main { padding: 12px 8px; }
+          .header-text { font-size: 1rem; }
+          .map-area { min-height: 280px; }
         }
       `}</style>
 
@@ -168,14 +259,14 @@ export default function MapPage() {
 
         <div className="main">
           {/* LEFT PANEL - SELECTED DINO */}
-          <div className="panel">
-            <div style={{ padding: '14px 18px', background: '#0a1f0a', borderBottom: '3px solid #0f0', fontSize: '0.95rem' }}>
+          <div className="panel dino-panel">
+            <div style={{ padding: '14px 18px', background: '#0a1f0a', borderBottom: '3px solid #0f0', fontSize: '0.95rem', textShadow: '0 0 8px #0f0' }}>
               SELECTED DINO
             </div>
             <div className="scroll" style={{ padding: '20px' }}>
               {selectedDino ? (
                 <>
-                  <div style={{ fontSize: '2rem', textAlign: 'center', marginBottom: '12px' }}>
+                  <div style={{ fontSize: '2.2rem', textAlign: 'center', marginBottom: '12px' }}>
                     {selectedDino.stage === 'egg' ? '🪺' : '🦕'}
                   </div>
                   <div style={{ textAlign: 'center', fontSize: '1.3rem', marginBottom: '8px' }}>
@@ -186,52 +277,81 @@ export default function MapPage() {
                   </div>
                 </>
               ) : (
-                <p style={{ textAlign: 'center', opacity: 0.5 }}>No dino selected</p>
+                <p style={{ textAlign: 'center', opacity: 0.5 }}>NO DINO SELECTED</p>
               )}
             </div>
           </div>
 
-          {/* CENTER - MAP AREA */}
+          {/* CENTER - MAP AREA (now bigger on mobile) */}
           <div className="panel map-area">
-            <div>
+            <div style={{ textAlign: 'center', zIndex: 2 }}>
               🌲 <strong>FOREST</strong> 🌲<br />
-              <span style={{ fontSize: '0.9rem', opacity: 0.6 }}>Live Simulation Area</span>
+              <span style={{ fontSize: '0.9rem', opacity: 0.6 }}>LIVE SIMULATION AREA</span>
               <div style={{ marginTop: '40px', fontSize: '1rem', opacity: 0.4 }}>
-                [ Future Map Canvas / Leaflet will go here ]<br />
-                Current players in instance: <strong>{players.length}</strong>
+                [ FUTURE MAP CANVAS / LEAFLET GOES HERE ]<br />
+                <strong>{players.length + 1}</strong> DINOS IN THIS INSTANCE
               </div>
             </div>
           </div>
 
-          {/* RIGHT PANEL - INFO */}
-          <div className="panel">
-            <div style={{ padding: '14px 18px', background: '#0a1f0a', borderBottom: '3px solid #0f0', fontSize: '0.95rem' }}>
+          {/* RIGHT PANEL - MAP INFO + OTHER PLAYERS */}
+          <div className="panel info-panel">
+            <div style={{ padding: '14px 18px', background: '#0a1f0a', borderBottom: '3px solid #0f0', fontSize: '0.95rem', textShadow: '0 0 8px #0f0' }}>
               MAP INFO
             </div>
             <div className="scroll" style={{ padding: '14px 18px' }}>
               {/* Mini-map placeholder */}
-              <div style={{ border: '3px solid #0ff', height: '160px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', color: '#0ff' }}>
+              <div style={{ 
+                border: '3px solid #0ff', 
+                height: '160px', 
+                marginBottom: '24px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                fontSize: '0.8rem', 
+                color: '#0ff',
+                background: 'rgba(15,240,0,0.05)'
+              }}>
                 MINI-MAP<br />(placeholder)
               </div>
 
-              {/* Other players */}
-              <div style={{ fontSize: '0.85rem', marginBottom: '12px' }}>OTHER DINOS IN AREA</div>
+              {/* Other players in area */}
+              <div style={{ fontSize: '0.85rem', marginBottom: '12px', color: '#ff0' }}>
+                OTHER DINOS IN AREA ({players.length})
+              </div>
+              
               {players.length > 0 ? (
                 players.map((p: any, i: number) => (
-                  <div key={i} style={{ padding: '8px', borderBottom: '1px dotted #0f0', fontSize: '0.78rem' }}>
-                    {p.evrima_player_dinos?.dino_name || 'Unknown'} • {p.evrima_player_dinos?.stage}
+                  <div key={i} className="player-item">
+                    {p.evrima_player_dinos?.dino_name || 'Unknown'} 
+                    <span style={{ float: 'right', opacity: 0.7, fontSize: '0.75rem' }}>
+                      {p.evrima_player_dinos?.stage} • {round(p.evrima_player_dinos?.growth)}%
+                    </span>
                   </div>
                 ))
               ) : (
-                <div style={{ opacity: 0.4, fontSize: '0.8rem' }}>No other players yet</div>
+                <div style={{ opacity: 0.4, fontSize: '0.8rem', textAlign: 'center', padding: '20px 0' }}>
+                  NO OTHER PLAYERS YET
+                </div>
               )}
 
-              <div style={{ marginTop: '30px', fontSize: '0.85rem' }}>
+              <div style={{ marginTop: '40px' }}>
                 <button 
-                  style={{ width: '100%', padding: '14px', background: '#112211', border: '3px solid #0ff', color: '#0ff', cursor: 'pointer' }}
+                  style={{ 
+                    width: '100%', 
+                    padding: '14px', 
+                    background: '#112211', 
+                    border: '3px solid #0ff', 
+                    color: '#0ff', 
+                    cursor: 'pointer',
+                    fontFamily: 'Press Start 2P, system-ui',
+                    fontSize: '0.95rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '2px'
+                  }}
                   onClick={() => router.push('/hub')}
                 >
-                  RETURN TO HUB
+                  ← RETURN TO HUB
                 </button>
               </div>
             </div>
@@ -239,8 +359,8 @@ export default function MapPage() {
         </div>
 
         {/* FOOTER */}
-        <div className="panel" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '20px', borderTop: '4px solid #0f0', fontSize: '0.9rem' }}>
-          <span>🌲 FOREST • {players.length} DINOS ACTIVE</span>
+        <div className="panel footer">
+          <span>🌲 FOREST • {players.length + 1} DINOS ACTIVE</span>
         </div>
       </div>
     </>
