@@ -168,7 +168,7 @@ export default function MapPage() {
     app.stage.addChild(viewport);
     viewportRef.current = viewport;
 
-    // Preload sprites
+    // Preload
     const spritePaths = [
       '/sprites/templates/raptor_baby_sprite.png',
       '/sprites/templates/raptor_juvenile_sprite.png',
@@ -180,12 +180,12 @@ export default function MapPage() {
 
     console.log('✅ PIXI + MAP LOADED');
 
-    // Camera setup
+    // Camera
     viewport.x = app.screen.width / 2 - 1250 * 0.65;
     viewport.y = app.screen.height / 2 - 1000 * 0.65;
     viewport.scale.set(0.65);
 
-    // Smooth zoom-in
+    // Smooth zoom
     let currentScale = 0.65;
     const targetScale = 1.05;
     const zoomInterval = setInterval(() => {
@@ -197,7 +197,7 @@ export default function MapPage() {
       viewport.scale.set(currentScale);
     }, 16);
 
-    // Camera controls
+    // Controls
     let isDragging = false;
     let lastX = 0;
     let lastY = 0;
@@ -243,9 +243,9 @@ export default function MapPage() {
 
         sprite = PIXI.Sprite.from(path);
         sprite.anchor.set(0.5);
-        sprite.scale.set(3.0);           // LARGE FOR TESTING
-        sprite.tint = 0xff0000;          // BRIGHT RED FOR TESTING
-        viewport.addChild(sprite);       // ADDED TO VIEWPORT BEFORE BACKGROUND
+        sprite.scale.set(3.0);      // LARGE FOR TESTING
+        sprite.tint = 0xff0000;     // BRIGHT RED FOR TESTING
+        viewport.addChild(sprite);
         spritesRef.current.set(currentDinoId, sprite);
         console.log("✅ Own sprite added to viewport (on top of background)");
       }
@@ -254,14 +254,11 @@ export default function MapPage() {
         sprite.x = ownPosition.x;
         sprite.y = ownPosition.y;
         console.log(`📍 Own dino position updated to (${ownPosition.x}, ${ownPosition.y})`);
-      } else {
-        console.log("⚠️ Own position not yet available");
       }
     } else {
       console.log("❌ Own dino block skipped");
     }
 
-    // Nearby (kept for future)
     nearbyData.forEach((item) => {
       const dinoId = item.dino_id.toString();
       let sprite = spritesRef.current.get(dinoId);
