@@ -170,9 +170,10 @@ export default function MapPage() {
       const texture = await PIXI.Assets.load('/islemap.png');
       const bg = new PIXI.Sprite(texture);
       bg.anchor.set(0.5);
-      bg.x = 1250;
+      bg.x = 1250;   // center of 2500x2000 map
       bg.y = 1000;
       viewport.addChild(bg);
+      console.log('✅ MAP BACKGROUND LOADED at center (1250,1000)');
     } catch (err) {
       console.error('❌ MAP FAILED', err);
     }
@@ -242,55 +243,49 @@ export default function MapPage() {
       }
     });
 
-    // Initial camera setup: center on player's own dino + smooth zoom-in
-    if (selectedDino && currentDinoId) {
-      // Wait a moment for position data to load, then center
-      setTimeout(() => {
-        const ownSprite = spritesRef.current.get(currentDinoId);
-        if (ownSprite) {
-          const targetX = ownSprite.x;
-          const targetY = ownSprite.y;
+    // Initial camera setup: start fairly zoomed in, centered on map, then smooth zoom-in
+    console.log('📍 Setting initial camera centered on map (1250,1000)');
+    viewport.x = app.screen.width / 2 - 1250 * 0.65;
+    viewport.y = app.screen.height / 2 - 1000 * 0.65;
+    viewport.scale.set(0.65); // fairly zoomed in
 
-          // Start at 50% zoom, centered on player
-          viewport.scale.set(0.5);
-          viewport.x = app.screen.width / 2 - targetX * 0.5;
-          viewport.y = app.screen.height / 2 - targetY * 0.5;
-
-          // Smooth zoom-in to comfortable level
-          let currentScale = 0.5;
-          const targetScale = 0.15; // ~15% of full map size - comfortable view
-
-          const zoomInterval = setInterval(() => {
-            currentScale = currentScale * 0.92 + targetScale * 0.08; // smooth lerp
-            if (Math.abs(currentScale - targetScale) < 0.01) {
-              currentScale = targetScale;
-              clearInterval(zoomInterval);
-            }
-            viewport.scale.set(currentScale);
-          }, 16);
-        }
-      }, 800);
-    }
+    // Smooth zoom-in animation
+    let currentScale = 0.65;
+    const targetScale = 1.05; // tighter final view
+    const zoomInterval = setInterval(() => {
+      currentScale = currentScale * 0.92 + targetScale * 0.08;
+      if (Math.abs(currentScale - targetScale) < 0.01) {
+        currentScale = targetScale;
+        clearInterval(zoomInterval);
+      }
+      viewport.scale.set(currentScale);
+    }, 16);
   };
 
   const updateDinoSprites = (nearbyData: any[]) => {
     if (!appRef.current) return;
     const app = appRef.current;
 
-    // Always ensure our own dino is rendered
+    console.log(`🔄 Updating sprites - nearby: ${nearbyData.length}`);
+
+    // Always ensure our own dino is rendered and updated
     if (selectedDino && currentDinoId) {
       let ownSprite = spritesRef.current.get(currentDinoId);
       if (!ownSprite) {
-        ownSprite = PIXI.Sprite.from(`/sprites/templates/raptor_${selectedDino.stage || 'baby'}_sprite.png`);
+        const stage = selectedDino.stage || 'baby';
+        const spritePath = `/sprites/templates/raptor_${stage}_sprite.png`;
+        console.log(`🦕 Creating own dino sprite: ${spritePath}`);
+        ownSprite = PIXI.Sprite.from(spritePath);
         ownSprite.anchor.set(0.5);
-        ownSprite.scale.set(0.8);
+        ownSprite.scale.set(0.9);
         app.stage.addChild(ownSprite);
         spritesRef.current.set(currentDinoId, ownSprite);
       }
-      // Update own dino position if available from selectedDino
-      if (selectedDino.position_x !== undefined) {
+      // Update own position if available
+      if (selectedDino.position_x !== undefined && selectedDino.position_y !== undefined) {
         ownSprite.x = selectedDino.position_x;
         ownSprite.y = selectedDino.position_y;
+        console.log(`📍 Own dino position updated to (${selectedDino.position_x}, ${selectedDino.position_y})`);
       }
     }
 
@@ -300,7 +295,10 @@ export default function MapPage() {
       let sprite = spritesRef.current.get(dinoId);
 
       if (!sprite) {
-        sprite = PIXI.Sprite.from(`/sprites/templates/raptor_${item.stage || 'baby'}_sprite.png`);
+        const stage = item.stage || 'baby';
+        const spritePath = `/sprites/templates/raptor_${stage}_sprite.png`;
+        console.log(`🦕 Creating nearby sprite: ${spritePath}`);
+        sprite = PIXI.Sprite.from(spritePath);
         sprite.anchor.set(0.5);
         sprite.scale.set(0.8);
         app.stage.addChild(sprite);
@@ -309,6 +307,7 @@ export default function MapPage() {
 
       sprite.x = item.position_x || 1250;
       sprite.y = item.position_y || 1000;
+      console.log(`📍 Updated sprite ${dinoId} to (${sprite.x}, ${sprite.y})`);
     });
   };
 
