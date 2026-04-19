@@ -156,7 +156,7 @@ export default function MapPage() {
       antialias: true,
     });
 
-    container.appendChild(app.view as HTMLCanvasElement);
+    container.appendChild(app.canvas);
     appRef.current = app;
 
     // -------- LOAD MAP TEXTURE (SAFE) --------
