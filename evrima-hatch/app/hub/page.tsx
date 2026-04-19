@@ -100,6 +100,7 @@ export default function HubPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);   // ← NEW
 
   const router = useRouter();
   const selectedIdRef = useRef<string | null>(null);
@@ -196,6 +197,23 @@ export default function HubPage() {
 
   const handleSelectDino = async (dino: Dino) => {
     console.log('🖱️ DEBUG: User clicked dino →', dino.dino_name, '(', dino.id, ')');
+
+    // NEW: Dino is not in hub → redirect to map
+    if (dino.location !== 'hub') {
+      if (dino.location === 'forest') {
+        router.push('/map');
+      } else {
+        setMessage(`This dino is currently in ${dino.location?.toUpperCase() || 'another area'}.`);
+      }
+      return;
+    }
+
+    // NEW: Guard - cannot select new dino if current one is in forest
+    if (selected && selected.location !== 'hub') {
+      setMessage("Return your current dino from the forest before selecting a new one.");
+      return;
+    }
+
     setSelected(dino);
     selectedIdRef.current = dino.id;
     await saveSelectedDino(dino.id);
@@ -226,7 +244,7 @@ export default function HubPage() {
     return () => clearInterval(interval);
   }, [userId]);
 
-  // Context menu logic
+  // Context menu logic (unchanged)
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
@@ -316,7 +334,12 @@ export default function HubPage() {
 
   const handleEnterMap = async () => {
     if (!selected) {
-      alert('Select a dino first!');
+      setMessage('Select a dino first!');
+      setShowOptionsMenu(false);
+      return;
+    }
+    if (selected.location !== 'hub') {
+      setMessage("This dino is already in the forest.");
       setShowOptionsMenu(false);
       return;
     }
@@ -326,7 +349,7 @@ export default function HubPage() {
       router.push('/map');
     } catch (err: any) {
       console.error('Enter map failed:', err.message);
-      alert(err.message);
+      setMessage(err.message);
     } finally {
       setActionLoading(false);
       setShowOptionsMenu(false);
@@ -393,12 +416,16 @@ export default function HubPage() {
           font-size: 0.88rem;
           color: #0f0;
           text-shadow: 0 0 6px #0f0;
-          min-height: 78px;           /* ← more breathing room on desktop */
+          min-height: 78px;
           display: flex;
           flex-direction: column;
           justify-content: center;
         }
-        .dinoItem:hover { background: rgba(15,240,0,0.12); transform: translateX(6px); }
+        .dinoItem.greyed-out {
+          opacity: 0.45;
+          color: #888;
+        }
+        .dinoItem:hover:not(.greyed-out) { background: rgba(15,240,0,0.12); transform: translateX(6px); }
         .centerCard {
           display: flex;
           flex-direction: column;
@@ -628,22 +655,32 @@ export default function HubPage() {
             <div className="panel dino-bank-panel">
               <div style={{ padding: '14px 18px', background: '#0a0a1f', borderBottom: '3px solid #0f0', fontSize: '0.95rem', textShadow: '0 0 8px #0f0' }}>DINO BANK</div>
               <div className="scroll">
-                {dinos.map(d => (
-                  <div
-                    key={d.id}
-                    className="dinoItem"
-                    onClick={() => handleSelectDino(d)}
-                    style={{
-                      background: selected?.id === d.id ? 'rgba(15,240,0,0.25)' : 'transparent',
-                      borderLeft: selected?.id === d.id ? '6px solid #0f0' : 'none'
-                    }}
-                  >
-                    <div style={{ fontSize: '0.95rem', fontWeight: 'bold' }}>{d.dino_name}</div>
-                    <div style={{ fontSize: '0.72rem', opacity: 0.75, marginTop: '4px' }}>
-                      {(d.location || 'HUB').toUpperCase()} • {d.stage} • {round(d.growth)}%
+                {dinos.map(d => {
+                  const isInForest = d.location === 'forest';
+                  const isSelected = selected?.id === d.id;
+
+                  return (
+                    <div
+                      key={d.id}
+                      className={`dinoItem ${isInForest ? 'greyed-out' : ''}`}
+                      onClick={() => handleSelectDino(d)}
+                      style={{
+                        background: isSelected ? 'rgba(15,240,0,0.25)' : 'transparent',
+                        borderLeft: isSelected ? '6px solid #0f0' : 'none'
+                      }}
+                    >
+                      <div style={{ fontSize: '0.95rem', fontWeight: 'bold' }}>{d.dino_name}</div>
+                      <div style={{ fontSize: '0.72rem', opacity: 0.75, marginTop: '4px' }}>
+                        {(d.location || 'HUB').toUpperCase()} • {d.stage} • {round(d.growth)}%
+                      </div>
+                      {isInForest && (
+                        <div style={{ fontSize: '0.65rem', color: '#ff0', marginTop: '4px' }}>
+                          Currently in Forest → Click to go there
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -776,6 +813,27 @@ export default function HubPage() {
             <div className="menu-item" style={{ color: '#0ff' }} onClick={handleRecalculate}>RECALC STATS</div>
             <div className="menu-item" style={{ color: '#f44' }} onClick={handleClearAllDinos}>CLEAR ALL</div>
             <div className="menu-item" style={{ color: '#0ff' }} onClick={handleEnterMap}>ENTER FOREST MAP</div>
+          </div>
+        )}
+
+        {/* NEW MESSAGE BANNER */}
+        {message && (
+          <div style={{
+            position: 'fixed',
+            bottom: '30px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#111133',
+            border: '4px solid #ff0',
+            color: '#ff0',
+            padding: '14px 28px',
+            fontSize: '0.85rem',
+            zIndex: 99999,
+            boxShadow: '0 0 20px #ff0',
+            textAlign: 'center',
+            maxWidth: '90%'
+          }}>
+            {message}
           </div>
         )}
       </div>
