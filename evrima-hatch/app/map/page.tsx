@@ -18,14 +18,12 @@ export default function MapPage() {
     checkMapPermission();
   }, []);
 
-  // Auto-refresh player list every 4 seconds (live feel)
+  // Auto-refresh every 4 seconds
   useEffect(() => {
     if (!instanceId || !currentUserId) return;
-
     const interval = setInterval(() => {
       loadPlayersInInstance(instanceId, currentUserId);
     }, 4000);
-
     return () => clearInterval(interval);
   }, [instanceId, currentUserId]);
 
@@ -46,12 +44,10 @@ export default function MapPage() {
       .single();
 
     if (!state?.current_map_key || state.current_map_key !== 'forest') {
-      console.log('🚫 No map permission — redirecting to hub');
       router.push('/hub');
       return;
     }
 
-    // Load selected dino
     if (state.selected_dino_id) {
       const { data: dino } = await supabase
         .from('evrima_player_dinos')
@@ -68,28 +64,23 @@ export default function MapPage() {
   const loadCurrentInstance = async (userId: string) => {
     const { data: presence } = await supabase
       .from('evrima_player_presence')
-      .select(`
-        instance_id,
-        evrima_map_instances!inner(id, map_type)
-      `)
+      .select('instance_id')
       .eq('user_id', userId)
       .single();
 
     if (presence?.instance_id) {
       setInstanceId(presence.instance_id);
       await loadPlayersInInstance(presence.instance_id, userId);
-    } else {
-      console.warn('⚠️ No active instance found for user');
     }
   };
 
-  // FIXED & OPTIMIZED: Load all players in the same instance + exclude self
+  // FIXED: Correct Supabase join syntax using dino_id foreign key
   const loadPlayersInInstance = async (instId: string, userId: string) => {
-    const { data: allPlayers } = await supabase
+    const { data: allPlayers, error } = await supabase
       .from('evrima_player_presence')
       .select(`
         user_id,
-        evrima_player_dinos!inner(
+        evrima_player_dinos:dino_id (
           dino_name,
           stage,
           growth,
@@ -98,13 +89,19 @@ export default function MapPage() {
       `)
       .eq('instance_id', instId);
 
+    if (error) {
+      console.error('❌ Error loading players:', error);
+      return;
+    }
+
     if (allPlayers) {
-      // Filter out current user + remove any null dinos
+      // Filter out self + ensure dino data exists
       const others = allPlayers.filter((p: any) => 
         p.user_id !== userId && p.evrima_player_dinos
       );
+      
       setPlayers(others);
-      console.log(`📡 Loaded ${others.length} other dinos in instance ${instId}`);
+      console.log(`📡 Found ${allPlayers.length} total presence rows → ${others.length} other players in instance ${instId}`);
     }
   };
 
@@ -174,14 +171,6 @@ export default function MapPage() {
           background: radial-gradient(circle, rgba(15,240,0,0.1) 0%, transparent 70%);
           pointer-events: none;
         }
-        .stat-row {
-          display: grid;
-          grid-template-columns: 140px 1fr;
-          gap: 12px;
-          font-size: 0.78rem;
-          padding: 8px 0;
-          border-bottom: 1px dotted rgba(15,240,0,0.2);
-        }
         .header-text {
           text-shadow: 0 0 8px #0f0;
           letter-spacing: 3px;
@@ -194,7 +183,6 @@ export default function MapPage() {
           font-size: 1.4rem;
           text-shadow: 0 0 12px #0f0;
         }
-        /* Footer */
         .footer {
           position: relative;
           z-index: 10000;
@@ -206,50 +194,23 @@ export default function MapPage() {
           font-size: 0.9rem;
           gap: 12px;
         }
-        /* Context / player list styling */
         .player-item {
           padding: 10px 14px;
           border-bottom: 1px dotted #0f0;
           font-size: 0.82rem;
           color: #0ff;
         }
-        /* Desktop: panels flush */
-        .dino-panel, .info-panel {
-          max-height: 680px;
-        }
-        /* MOBILE RESPONSIVE - identical logic to hub page */
         @media (max-width: 900px) {
-          .root {
-            grid-template-rows: 70px 1fr 80px;
-            min-height: 100vh;
-          }
-          .main {
-            grid-template-columns: 1fr;
-            gap: 16px;
-            padding: 16px 12px;
-          }
-          .panel {
-            min-height: auto;
-            border-width: 3px;
-          }
-          .map-area {
-            min-height: 320px;
-            font-size: 1.1rem;
-          }
-          .dino-panel, .info-panel {
-            max-height: none;
-          }
-          .scroll { padding: 10px; }
+          .root { grid-template-rows: 70px 1fr 80px; }
+          .main { grid-template-columns: 1fr; gap: 16px; padding: 16px 12px; }
+          .map-area { min-height: 320px; font-size: 1.1rem; }
         }
         @media (max-width: 600px) {
           .main { padding: 12px 8px; }
-          .header-text { font-size: 1rem; }
-          .map-area { min-height: 280px; }
         }
       `}</style>
 
       <div className="root">
-        {/* HEADER */}
         <header className="panel" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', borderBottom: '4px solid #0f0' }}>
           <div className="header-text">🌲 FOREST MAP</div>
           <div className="header-text" style={{ fontSize: '1.05rem', color: '#0ff' }}>
@@ -258,8 +219,8 @@ export default function MapPage() {
         </header>
 
         <div className="main">
-          {/* LEFT PANEL - SELECTED DINO */}
-          <div className="panel dino-panel">
+          {/* LEFT - SELECTED DINO */}
+          <div className="panel">
             <div style={{ padding: '14px 18px', background: '#0a1f0a', borderBottom: '3px solid #0f0', fontSize: '0.95rem', textShadow: '0 0 8px #0f0' }}>
               SELECTED DINO
             </div>
@@ -282,7 +243,7 @@ export default function MapPage() {
             </div>
           </div>
 
-          {/* CENTER - MAP AREA (now bigger on mobile) */}
+          {/* CENTER - MAP AREA */}
           <div className="panel map-area">
             <div style={{ textAlign: 'center', zIndex: 2 }}>
               🌲 <strong>FOREST</strong> 🌲<br />
@@ -294,28 +255,16 @@ export default function MapPage() {
             </div>
           </div>
 
-          {/* RIGHT PANEL - MAP INFO + OTHER PLAYERS */}
-          <div className="panel info-panel">
+          {/* RIGHT - MAP INFO */}
+          <div className="panel">
             <div style={{ padding: '14px 18px', background: '#0a1f0a', borderBottom: '3px solid #0f0', fontSize: '0.95rem', textShadow: '0 0 8px #0f0' }}>
               MAP INFO
             </div>
             <div className="scroll" style={{ padding: '14px 18px' }}>
-              {/* Mini-map placeholder */}
-              <div style={{ 
-                border: '3px solid #0ff', 
-                height: '160px', 
-                marginBottom: '24px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                fontSize: '0.8rem', 
-                color: '#0ff',
-                background: 'rgba(15,240,0,0.05)'
-              }}>
+              <div style={{ border: '3px solid #0ff', height: '160px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', color: '#0ff', background: 'rgba(15,240,0,0.05)' }}>
                 MINI-MAP<br />(placeholder)
               </div>
 
-              {/* Other players in area */}
               <div style={{ fontSize: '0.85rem', marginBottom: '12px', color: '#ff0' }}>
                 OTHER DINOS IN AREA ({players.length})
               </div>
@@ -337,18 +286,7 @@ export default function MapPage() {
 
               <div style={{ marginTop: '40px' }}>
                 <button 
-                  style={{ 
-                    width: '100%', 
-                    padding: '14px', 
-                    background: '#112211', 
-                    border: '3px solid #0ff', 
-                    color: '#0ff', 
-                    cursor: 'pointer',
-                    fontFamily: 'Press Start 2P, system-ui',
-                    fontSize: '0.95rem',
-                    textTransform: 'uppercase',
-                    letterSpacing: '2px'
-                  }}
+                  style={{ width: '100%', padding: '14px', background: '#112211', border: '3px solid #0ff', color: '#0ff', cursor: 'pointer', fontFamily: 'Press Start 2P, system-ui', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '2px' }}
                   onClick={() => router.push('/hub')}
                 >
                   ← RETURN TO HUB
@@ -358,7 +296,6 @@ export default function MapPage() {
           </div>
         </div>
 
-        {/* FOOTER */}
         <div className="panel footer">
           <span>🌲 FOREST • {players.length + 1} DINOS ACTIVE</span>
         </div>
