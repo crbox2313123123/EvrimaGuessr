@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import { leaveMap } from '../../server/actions';
@@ -103,7 +103,6 @@ export default function MapPage() {
 
     setPlayers(data || []);
 
-    // Fetch real own position
     const { data: entity } = await supabase
       .from('evrima_instance_entities')
       .select('position_x, position_y')
@@ -162,7 +161,6 @@ export default function MapPage() {
     app.stage.addChild(viewport);
     viewportRef.current = viewport;
 
-    // Preload sprites
     const spritePaths = [
       '/sprites/templates/raptor_baby_sprite.png',
       '/sprites/templates/raptor_juvenile_sprite.png',
@@ -172,7 +170,6 @@ export default function MapPage() {
     ];
     await PIXI.Assets.load(spritePaths).catch(() => {});
 
-    // Background
     try {
       const texture = await PIXI.Assets.load('/islemap.png');
       const bg = new PIXI.Sprite(texture);
@@ -187,12 +184,10 @@ export default function MapPage() {
 
     console.log('✅ PIXI + MAP LOADED');
 
-    // Camera setup
     viewport.x = app.screen.width / 2 - 1250 * 0.65;
     viewport.y = app.screen.height / 2 - 1000 * 0.65;
     viewport.scale.set(0.65);
 
-    // Smooth zoom-in
     let currentScale = 0.65;
     const targetScale = 1.05;
     const zoomInterval = setInterval(() => {
@@ -204,7 +199,6 @@ export default function MapPage() {
       viewport.scale.set(currentScale);
     }, 16);
 
-    // Pan + zoom controls
     let isDragging = false;
     let lastX = 0;
     let lastY = 0;
@@ -233,18 +227,18 @@ export default function MapPage() {
 
   const updateDinoSprites = (nearbyData: any[]) => {
     if (!viewportRef.current) {
-      console.log("❌ updateDinoSprites: no viewport yet");
+      console.log("❌ updateDinoSprites skipped: no viewport");
       return;
     }
+
     const viewport = viewportRef.current;
 
     console.log(`🔄 Updating sprites - nearby: ${nearbyData.length}`);
+    console.log("Own dino state check → selectedDino:", !!selectedDino, "currentDinoId:", !!currentDinoId, "ownPosition:", ownPosition ? ownPosition : null);
 
-    // === OWN DINO BLOCK WITH HEAVY DEBUG ===
-    console.log("Own dino check → selectedDino:", !!selectedDino, "currentDinoId:", !!currentDinoId, "ownPosition:", ownPosition);
-
-    if (selectedDino && currentDinoId && ownPosition) {
-      console.log("✅ Own dino condition passed - attempting to create/update sprite");
+    // Own dino - more robust check
+    if (selectedDino && currentDinoId) {
+      console.log("✅ Own dino data exists - proceeding with creation/update");
 
       let sprite = spritesRef.current.get(currentDinoId);
       if (!sprite) {
@@ -258,18 +252,20 @@ export default function MapPage() {
         sprite.scale.set(0.9);
         viewport.addChild(sprite);
         spritesRef.current.set(currentDinoId, sprite);
-      } else {
-        console.log("Own sprite already exists, updating position");
       }
 
-      sprite.x = ownPosition.x;
-      sprite.y = ownPosition.y;
-      console.log(`📍 Own dino position updated to (${ownPosition.x}, ${ownPosition.y})`);
+      if (ownPosition) {
+        sprite.x = ownPosition.x;
+        sprite.y = ownPosition.y;
+        console.log(`📍 Own dino position updated to (${ownPosition.x}, ${ownPosition.y})`);
+      } else {
+        console.log("⚠️ Own position not yet available - sprite created but position pending");
+      }
     } else {
-      console.log("❌ Own dino condition FAILED - skipping creation");
+      console.log("❌ Own dino block skipped - missing selectedDino or currentDinoId");
     }
 
-    // Nearby dinos
+    // Nearby (kept for future)
     nearbyData.forEach((item) => {
       const dinoId = item.dino_id.toString();
       let sprite = spritesRef.current.get(dinoId);
@@ -286,7 +282,6 @@ export default function MapPage() {
       }
       sprite.x = item.position_x || 1250;
       sprite.y = item.position_y || 1000;
-      console.log(`📍 Updated sprite ${dinoId} to (${sprite.x}, ${sprite.y})`);
     });
   };
 
