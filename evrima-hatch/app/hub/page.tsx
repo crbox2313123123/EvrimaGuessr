@@ -118,24 +118,25 @@ export default function HubPage() {
     setCurrentUser(session.user);
     setUserId(session.user.id);
     
-    const dinoData = await loadDinos();
+    const dinoData = await loadDinos(session.user.id);   // ← pass it directly here
     await loadPlayerState(dinoData);
   };
 
   // ─────────────────────────────────────────────────────────────
   // SERVER-SIDE DINO BANK – only show user's own dinos
-  const loadDinos = async () => {
-    if (!userId) return [];
+  const loadDinos = async (currentUserId?: string) => {
+    const uid = currentUserId || userId;
+    if (!uid) return [];
     
     const { data } = await supabase
       .from('evrima_player_dinos')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', uid)
       .order('created_at', { ascending: false });
 
     const dinoList = data || [];
     setDinos(dinoList);
-    console.log('📋 DEBUG: Loaded', dinoList.length, 'dinos in bank for user', userId);
+    console.log('📋 DEBUG: Loaded', dinoList.length, 'dinos in bank for user', uid);
     return dinoList;
   };
 
@@ -229,8 +230,10 @@ export default function HubPage() {
 
   // Polling for the full Dino Bank list
   useEffect(() => {
+    if (!userId) return;
+    
     const interval = setInterval(() => {
-      loadDinos();
+      loadDinos(userId);
     }, 6000);
 
     return () => clearInterval(interval);
