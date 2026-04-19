@@ -11,6 +11,7 @@ export default function MapPage() {
   const [selectedDino, setSelectedDino] = useState<any>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [isLive, setIsLive] = useState(false);
 
@@ -23,33 +24,53 @@ export default function MapPage() {
   }, []);
 
   const checkMapPermission = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return router.push('/hub');
+    console.log('🔍 [MAP] Starting checkMapPermission...');
+    setError(null);
 
-    const userId = session.user.id;
-    setCurrentUserId(userId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.log('🚫 [MAP] No session → redirecting to /hub');
+        return router.push('/hub');
+      }
 
-    const { data: state } = await supabase
-      .from('evrima_player_state')
-      .select('current_map_key, selected_dino_id')
-      .eq('user_id', userId)
-      .single();
+      const userId = session.user.id;
+      setCurrentUserId(userId);
+      console.log(`🔑 [MAP] Authenticated user: ${userId.slice(0, 8)}...`);
 
-    if (!state?.current_map_key || state.current_map_key !== 'forest') {
-      return router.push('/hub');
-    }
-
-    if (state.selected_dino_id) {
-      const { data: dino } = await supabase
-        .from('evrima_player_dinos')
-        .select('*')
-        .eq('id', state.selected_dino_id)
+      // 1. Check player state
+      const { data: state, error: stateError } = await supabase
+        .from('evrima_player_state')
+        .select('current_map_key, selected_dino_id')
+        .eq('user_id', userId)
         .single();
-      if (dino) setSelectedDino(dino);
-    }
 
-    await loadCurrentInstance(userId);
-    setLoading(false);
+      if (stateError) throw new Error(`State query failed: ${stateError.message}`);
+      if (!state?.current_map_key || state.current_map_key !== 'forest') {
+        console.log('🚫 [MAP] Not in forest map → redirecting');
+        return router.push('/hub');
+      }
+
+      // 2. Load selected dino
+      if (state.selected_dino_id) {
+        const { data: dino } = await supabase
+          .from('evrima_player_dinos')
+          .select('*')
+          .eq('id', state.selected_dino_id)
+          .single();
+        if (dino) setSelectedDino(dino);
+      }
+
+      // 3. Load current instance + players
+      await loadCurrentInstance(userId);
+
+      console.log('✅ [MAP] Permission check completed successfully');
+    } catch (err: any) {
+      console.error('❌ [MAP] checkMapPermission failed:', err);
+      setError(err.message || 'Unknown error while loading map');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadCurrentInstance = async (userId: string) => {
@@ -60,43 +81,13 @@ export default function MapPage() {
       .single();
 
     if (presence?.instance_id) {
+      console.log(`📍 [MAP] Found instance: ${presence.instance_id}`);
       setInstanceId(presence.instance_id);
       await loadPlayersInInstance(presence.instance_id, userId);
       setupRealtimeSubscription(presence.instance_id, userId);
+    } else {
+      console.warn('⚠️ [MAP] No active instance found for user');
     }
-  };
-
-  // ─────────────────────────────────────────────────────────────
-  // REALTIME SUBSCRIPTION (this is the magic)
-  // ─────────────────────────────────────────────────────────────
-  const setupRealtimeSubscription = (instId: string, userId: string) => {
-    console.log(`📡 [MAP] Setting up realtime subscription for instance ${instId}`);
-
-    const channel = supabase
-      .channel(`map-presence:${instId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',                    // insert, update, delete
-          schema: 'public',
-          table: 'evrima_player_presence',
-          filter: `instance_id=eq.${instId}`,
-        },
-        (payload) => {
-          console.log(`🔴 [MAP REALTIME] Change detected: ${payload.eventType}`);
-          loadPlayersInInstance(instId, userId);   // instant refresh
-        }
-      )
-      .subscribe((status) => {
-        console.log(`📡 [MAP REALTIME] Subscription status: ${status}`);
-        if (status === 'SUBSCRIBED') setIsLive(true);
-      });
-
-    // Cleanup on unmount
-    return () => {
-      supabase.removeChannel(channel);
-      setIsLive(false);
-    };
   };
 
   const loadPlayersInInstance = async (instId: string, userId: string) => {
@@ -111,7 +102,6 @@ export default function MapPage() {
     }
 
     const otherPresences = presenceRows?.filter(p => p.user_id !== userId) || [];
-    
     if (otherPresences.length === 0) {
       setPlayers([]);
       return;
@@ -132,8 +122,27 @@ export default function MapPage() {
     setPlayers(combined);
   };
 
+  const setupRealtimeSubscription = (instId: string, userId: string) => {
+    const channel = supabase
+      .channel(`map-presence:${instId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'evrima_player_presence',
+        filter: `instance_id=eq.${instId}`,
+      }, () => {
+        console.log('🔴 [MAP REALTIME] Change detected – refreshing');
+        loadPlayersInInstance(instId, userId);
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') setIsLive(true);
+      });
+
+    return () => supabase.removeChannel(channel);
+  };
+
   const handleRevealNearby = () => {
-    console.log('🔍 [MAP] REVEAL NEARBY DINOSAUR clicked');
+    console.log('🔍 REVEAL NEARBY DINOSAUR clicked');
     setRevealed(true);
   };
 
@@ -146,7 +155,31 @@ export default function MapPage() {
     router.push('/hub');
   };
 
-  if (loading) return <div className="loading">CHECKING MAP ACCESS...</div>;
+  if (loading) {
+    return (
+      <div className="loading">
+        CHECKING MAP ACCESS...
+        <div style={{ marginTop: '20px', fontSize: '0.9rem', opacity: 0.6 }}>
+          (This should only take a second)
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="loading" style={{ color: '#f44' }}>
+        ERROR<br />
+        <span style={{ fontSize: '0.9rem' }}>{error}</span>
+        <button 
+          onClick={() => window.location.reload()}
+          style={{ marginTop: '30px', padding: '12px 24px' }}
+        >
+          RELOAD PAGE
+        </button>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -154,26 +187,17 @@ export default function MapPage() {
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
         html, body { height: 100%; overflow: auto; background: #0a1f0a; color: #0f0; font-family: 'Press Start 2P', system-ui; }
         * { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #0f0; border-radius: 20px; }
         .root { min-height: 100vh; display: grid; grid-template-rows: 80px 1fr 80px; position: relative; }
         .main { display: grid; grid-template-columns: 340px 1fr 340px; gap: 24px; padding: 24px 40px; min-height: 0; background: #050f05; }
         .panel { border: 4px solid #0f0; box-shadow: 0 0 12px #0f0; background: #112211; display: flex; flex-direction: column; min-height: 0; text-transform: uppercase; letter-spacing: 2px; overflow: hidden; }
         .scroll { overflow-y: auto; flex: 1; min-height: 0; padding: 12px; }
         .map-area { background: #0a1f0a; border: 4px solid #0f0; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.4rem; color: #0f0; text-shadow: 0 0 12px #0f0; overflow: hidden; gap: 20px; }
-        .map-area::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle, rgba(15,240,0,0.1) 0%, transparent 70%); pointer-events: none; }
         .header-text { text-shadow: 0 0 8px #0f0; letter-spacing: 3px; }
-        .loading { height: 100vh; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; text-shadow: 0 0 12px #0f0; }
+        .loading { height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.4rem; text-shadow: 0 0 12px #0f0; }
         .footer { position: relative; z-index: 10000; display: flex; justify-content: center; align-items: center; padding: 12px; border-top: 4px solid #0f0; font-size: 0.9rem; gap: 12px; }
         .player-item { padding: 10px 14px; border-bottom: 1px dotted #0f0; font-size: 0.82rem; color: #0ff; }
-        .reveal-btn, .force-btn {
-          border: 3px solid #ff0; background: #112211; color: #ff0; padding: 14px 24px;
-          font-family: 'Press Start 2P', system-ui; font-size: 0.95rem; text-transform: uppercase;
-          letter-spacing: 2px; cursor: pointer; transition: all 0.2s;
-        }
+        .reveal-btn, .force-btn { border: 3px solid #ff0; background: #112211; color: #ff0; padding: 14px 24px; font-family: 'Press Start 2P', system-ui; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 2px; cursor: pointer; transition: all 0.2s; }
         .reveal-btn:hover, .force-btn:hover { background: #ff0; color: #111133; }
-        .live-dot { display: inline-block; width: 10px; height: 10px; background: #0f0; border-radius: 50%; animation: pulse 2s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
         @media (max-width: 900px) {
           .root { grid-template-rows: 70px 1fr 80px; }
           .main { grid-template-columns: 1fr; gap: 16px; padding: 16px 12px; }
@@ -183,7 +207,7 @@ export default function MapPage() {
 
       <div className="root">
         <header className="panel" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', borderBottom: '4px solid #0f0' }}>
-          <div className="header-text">🌲 FOREST MAP <span className="live-dot" style={{ marginLeft: '8px' }}></span> <span style={{ fontSize: '0.75rem', color: '#0ff' }}>LIVE</span></div>
+          <div className="header-text">🌲 FOREST MAP <span style={{ color: isLive ? '#0f0' : '#f44', marginLeft: '8px' }}>● LIVE</span></div>
           <div className="header-text" style={{ fontSize: '1.05rem', color: '#0ff' }}>
             INSTANCE: {instanceId ? instanceId.slice(0, 8) : 'LOADING...'}
           </div>
@@ -198,9 +222,15 @@ export default function MapPage() {
             <div className="scroll" style={{ padding: '20px' }}>
               {selectedDino ? (
                 <>
-                  <div style={{ fontSize: '2.2rem', textAlign: 'center', marginBottom: '12px' }}>{selectedDino.stage === 'egg' ? '🪺' : '🦕'}</div>
-                  <div style={{ textAlign: 'center', fontSize: '1.3rem', marginBottom: '8px' }}>{selectedDino.dino_name}</div>
-                  <div style={{ textAlign: 'center', color: '#0ff', fontSize: '0.95rem' }}>{selectedDino.stage} • {round(selectedDino.growth)}%</div>
+                  <div style={{ fontSize: '2.2rem', textAlign: 'center', marginBottom: '12px' }}>
+                    {selectedDino.stage === 'egg' ? '🪺' : '🦕'}
+                  </div>
+                  <div style={{ textAlign: 'center', fontSize: '1.3rem', marginBottom: '8px' }}>
+                    {selectedDino.dino_name}
+                  </div>
+                  <div style={{ textAlign: 'center', color: '#0ff', fontSize: '0.95rem' }}>
+                    {selectedDino.stage} • {round(selectedDino.growth)}%
+                  </div>
                 </>
               ) : (
                 <p style={{ textAlign: 'center', opacity: 0.5 }}>NO DINO SELECTED</p>
@@ -208,7 +238,7 @@ export default function MapPage() {
             </div>
           </div>
 
-          {/* CENTER - MAP AREA (ready for future sprites) */}
+          {/* CENTER - MAP AREA */}
           <div className="panel map-area">
             <div style={{ textAlign: 'center', zIndex: 2 }}>
               🌲 <strong>FOREST</strong> 🌲<br />
@@ -221,10 +251,6 @@ export default function MapPage() {
 
             <button className="reveal-btn" onClick={handleRevealNearby} style={{ zIndex: 3 }}>
               REVEAL NEARBY DINOSAUR
-            </button>
-
-            <button className="force-btn" onClick={() => instanceId && currentUserId && loadPlayersInInstance(instanceId, currentUserId)} style={{ zIndex: 3, fontSize: '0.8rem' }}>
-              FORCE REFRESH
             </button>
           </div>
 
