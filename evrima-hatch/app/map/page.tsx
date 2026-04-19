@@ -12,7 +12,7 @@ export default function MapPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [revealed, setRevealed] = useState(false);
-  const [lastPlayerCount, setLastPlayerCount] = useState(0); // for join/leave detection
+  const [isLive, setIsLive] = useState(false);
 
   const router = useRouter();
 
@@ -22,23 +22,12 @@ export default function MapPage() {
     checkMapPermission();
   }, []);
 
-  // Auto-refresh every 3 seconds during testing (faster for debug)
-  useEffect(() => {
-    if (!instanceId || !currentUserId) return;
-    console.log(`🔄 [MAP] Starting auto-refresh for instance ${instanceId}`);
-    const interval = setInterval(() => {
-      loadPlayersInInstance(instanceId, currentUserId);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [instanceId, currentUserId]);
-
   const checkMapPermission = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return router.push('/hub');
 
     const userId = session.user.id;
     setCurrentUserId(userId);
-    console.log(`🔑 [MAP] Authenticated as user: ${userId.slice(0, 8)}...`);
 
     const { data: state } = await supabase
       .from('evrima_player_state')
@@ -47,7 +36,6 @@ export default function MapPage() {
       .single();
 
     if (!state?.current_map_key || state.current_map_key !== 'forest') {
-      console.log('🚫 [MAP] Not in forest map → redirecting');
       return router.push('/hub');
     }
 
@@ -72,15 +60,46 @@ export default function MapPage() {
       .single();
 
     if (presence?.instance_id) {
-      console.log(`📍 [MAP] Current instance: ${presence.instance_id}`);
       setInstanceId(presence.instance_id);
       await loadPlayersInInstance(presence.instance_id, userId);
+      setupRealtimeSubscription(presence.instance_id, userId);
     }
   };
 
-  const loadPlayersInInstance = async (instId: string, userId: string) => {
-    console.log(`🔍 [MAP REFRESH] Checking instance ${instId} at ${new Date().toLocaleTimeString()}`);
+  // ─────────────────────────────────────────────────────────────
+  // REALTIME SUBSCRIPTION (this is the magic)
+  // ─────────────────────────────────────────────────────────────
+  const setupRealtimeSubscription = (instId: string, userId: string) => {
+    console.log(`📡 [MAP] Setting up realtime subscription for instance ${instId}`);
 
+    const channel = supabase
+      .channel(`map-presence:${instId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',                    // insert, update, delete
+          schema: 'public',
+          table: 'evrima_player_presence',
+          filter: `instance_id=eq.${instId}`,
+        },
+        (payload) => {
+          console.log(`🔴 [MAP REALTIME] Change detected: ${payload.eventType}`);
+          loadPlayersInInstance(instId, userId);   // instant refresh
+        }
+      )
+      .subscribe((status) => {
+        console.log(`📡 [MAP REALTIME] Subscription status: ${status}`);
+        if (status === 'SUBSCRIBED') setIsLive(true);
+      });
+
+    // Cleanup on unmount
+    return () => {
+      supabase.removeChannel(channel);
+      setIsLive(false);
+    };
+  };
+
+  const loadPlayersInInstance = async (instId: string, userId: string) => {
     const { data: presenceRows, error } = await supabase
       .from('evrima_player_presence')
       .select('user_id, dino_id')
@@ -91,35 +110,9 @@ export default function MapPage() {
       return;
     }
 
-    console.log(`📡 [MAP] Raw presence rows found: ${presenceRows?.length || 0}`);
-
-    if (!presenceRows || presenceRows.length === 0) {
-      setPlayers([]);
-      setLastPlayerCount(0);
-      return;
-    }
-
-    // Log every player currently in the instance
-    presenceRows.forEach(p => {
-      const isSelf = p.user_id === userId;
-      console.log(`👤 [MAP] Presence → user: ${p.user_id.slice(0, 8)}... | dino_id: ${p.dino_id ? p.dino_id.slice(0, 8) : 'null'} | ${isSelf ? '(YOU)' : '(OTHER)'}`);
-    });
-
-    const otherPresences = presenceRows.filter(p => p.user_id !== userId);
-    const currentOtherCount = otherPresences.length;
-
-    console.log(`📊 [MAP] Other players detected: ${currentOtherCount}`);
-
-    // Join/Leave detection
-    if (currentOtherCount > lastPlayerCount) {
-      console.log(`🟢 [MAP] PLAYER JOINED INSTANCE (+${currentOtherCount - lastPlayerCount})`);
-    } else if (currentOtherCount < lastPlayerCount) {
-      console.log(`🔴 [MAP] PLAYER LEFT INSTANCE (-${lastPlayerCount - currentOtherCount})`);
-    }
-
-    setLastPlayerCount(currentOtherCount);
-
-    if (currentOtherCount === 0) {
+    const otherPresences = presenceRows?.filter(p => p.user_id !== userId) || [];
+    
+    if (otherPresences.length === 0) {
       setPlayers([]);
       return;
     }
@@ -131,38 +124,25 @@ export default function MapPage() {
       .select('id, dino_name, stage, growth, species_key')
       .in('id', otherDinoIds);
 
-    const combined = otherPresences.map(p => {
-      const dino = otherDinos?.find(d => d.id === p.dino_id);
-      return {
-        user_id: p.user_id,
-        evrima_player_dinos: dino || null
-      };
-    });
+    const combined = otherPresences.map(p => ({
+      user_id: p.user_id,
+      evrima_player_dinos: otherDinos?.find(d => d.id === p.dino_id) || null
+    }));
 
     setPlayers(combined);
-    console.log(`✅ [MAP] Final other players loaded: ${combined.length}`);
   };
 
   const handleRevealNearby = () => {
     console.log('🔍 [MAP] REVEAL NEARBY DINOSAUR clicked');
-    console.log('Full nearby data:', players);
     setRevealed(true);
   };
 
   const handleReturnToHub = async () => {
-    console.log('🚪 [MAP] RETURN TO HUB clicked – attempting to leave map...');
-    if (!currentUserId) {
-      router.push('/hub');
-      return;
-    }
-
     try {
       await leaveMap();
-      console.log('✅ [MAP] leaveMap() succeeded');
     } catch (err) {
-      console.error('⚠️ [MAP] leaveMap() failed:', err);
+      console.error('⚠️ Leave map failed:', err);
     }
-
     router.push('/hub');
   };
 
@@ -192,6 +172,8 @@ export default function MapPage() {
           letter-spacing: 2px; cursor: pointer; transition: all 0.2s;
         }
         .reveal-btn:hover, .force-btn:hover { background: #ff0; color: #111133; }
+        .live-dot { display: inline-block; width: 10px; height: 10px; background: #0f0; border-radius: 50%; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
         @media (max-width: 900px) {
           .root { grid-template-rows: 70px 1fr 80px; }
           .main { grid-template-columns: 1fr; gap: 16px; padding: 16px 12px; }
@@ -201,7 +183,7 @@ export default function MapPage() {
 
       <div className="root">
         <header className="panel" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', borderBottom: '4px solid #0f0' }}>
-          <div className="header-text">🌲 FOREST MAP</div>
+          <div className="header-text">🌲 FOREST MAP <span className="live-dot" style={{ marginLeft: '8px' }}></span> <span style={{ fontSize: '0.75rem', color: '#0ff' }}>LIVE</span></div>
           <div className="header-text" style={{ fontSize: '1.05rem', color: '#0ff' }}>
             INSTANCE: {instanceId ? instanceId.slice(0, 8) : 'LOADING...'}
           </div>
@@ -226,13 +208,13 @@ export default function MapPage() {
             </div>
           </div>
 
-          {/* CENTER - MAP AREA */}
+          {/* CENTER - MAP AREA (ready for future sprites) */}
           <div className="panel map-area">
             <div style={{ textAlign: 'center', zIndex: 2 }}>
               🌲 <strong>FOREST</strong> 🌲<br />
               <span style={{ fontSize: '0.9rem', opacity: 0.6 }}>LIVE SIMULATION AREA</span>
               <div style={{ marginTop: '30px', fontSize: '1rem', opacity: 0.4 }}>
-                [ FUTURE MAP CANVAS / LEAFLET GOES HERE ]<br />
+                [ FUTURE MAP CANVAS / LEAFLET / SPRITES GO HERE ]<br />
                 <strong>{players.length + 1}</strong> DINOS IN THIS INSTANCE
               </div>
             </div>
@@ -241,8 +223,8 @@ export default function MapPage() {
               REVEAL NEARBY DINOSAUR
             </button>
 
-            <button className="force-btn" onClick={() => currentUserId && instanceId && loadPlayersInInstance(instanceId, currentUserId)} style={{ zIndex: 3, fontSize: '0.8rem' }}>
-              FORCE REFRESH MAP
+            <button className="force-btn" onClick={() => instanceId && currentUserId && loadPlayersInInstance(instanceId, currentUserId)} style={{ zIndex: 3, fontSize: '0.8rem' }}>
+              FORCE REFRESH
             </button>
           </div>
 
