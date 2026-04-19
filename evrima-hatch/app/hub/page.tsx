@@ -499,14 +499,20 @@ export default function HubPage() {
           text-shadow: 0 0 12px #0f0;
         }
 
-        /* Desktop fix: Advanced stats scroll internally - nothing moves */
+        /* SOLUTION 1 - Desktop: Live Stats panel is fixed height */
+        .live-stats-panel {
+          max-height: 560px; /* Matches collapsed height from your screenshot */
+          overflow: hidden;
+        }
+
+        /* Advanced stats scroll internally on desktop */
         .advanced-container {
-          max-height: 460px; /* Adjust if needed */
+          max-height: 380px;
           overflow-y: auto;
           padding-right: 8px;
         }
 
-        /* MOBILE */
+        /* MOBILE - keeps your preferred behavior */
         @media (max-width: 900px) {
           .root { 
             grid-template-rows: 70px auto 80px; 
@@ -597,7 +603,7 @@ export default function HubPage() {
             </div>
           </div>
 
-          {/* CENTER - SELECTED DINO - FIXED HEIGHT, NO EXPANSION */}
+          {/* CENTER - SELECTED DINO - NEVER MOVES ON DESKTOP */}
           <div className="panel centerCard" style={{ flex: '1 1 auto', minHeight: '260px' }}>
             {selected ? (
               <>
@@ -617,8 +623,8 @@ export default function HubPage() {
             )}
           </div>
 
-          {/* RIGHT - LIVE STATS */}
-          <div className="panel" style={{ flex: '1 1 auto' }}>
+          {/* RIGHT - LIVE STATS - FIXED HEIGHT ON DESKTOP (Solution 1) */}
+          <div className="panel live-stats-panel" style={{ flex: '1 1 auto' }}>
             <div style={{ padding: '14px 18px', background: '#0a0a1f', borderBottom: '3px solid #0f0', fontSize: '0.95rem', textShadow: '0 0 8px #0f0' }}>LIVE STATS</div>
             <div className="scroll" style={{ padding: '14px 18px' }}>
               <div className="section-header">SURVIVAL</div>
