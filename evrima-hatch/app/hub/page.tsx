@@ -244,13 +244,12 @@ export default function HubPage() {
         setShowOptionsMenu(false);
       }
     };
-    if (showOptionsMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    if (showOptionsMenu) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showOptionsMenu]);
 
-  const handleOptionsClick = () => {
+  const handleOptionsClick = (e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
     setShowOptionsMenu(!showOptionsMenu);
   };
 
@@ -552,7 +551,7 @@ export default function HubPage() {
           border-top: 4px solid #0f0;
         }
 
-        /* Context menu - now at root level with fixed positioning */
+        /* Context menu - fixed position, outside grid */
         .options-menu {
           position: fixed;
           bottom: 90px;
@@ -595,6 +594,7 @@ export default function HubPage() {
             min-width: auto;
             max-height: 85vh;
             overflow-y: auto;
+            border-radius: 8px;
           }
           .root { 
             grid-template-rows: 70px auto 80px; 
@@ -795,6 +795,7 @@ export default function HubPage() {
             ref={optionsButtonRef}
             className="btn" 
             onClick={handleOptionsClick}
+            onTouchEnd={handleOptionsClick}
             disabled={actionLoading}
             style={{ minWidth: '180px' }}
           >
@@ -802,7 +803,7 @@ export default function HubPage() {
           </button>
         </div>
 
-        {/* CONTEXT MENU - rendered at root level so it can overlay everything */}
+        {/* CONTEXT MENU - rendered at root level, outside grid */}
         {showOptionsMenu && (
           <div className="options-menu">
             <div className="menu-item" onClick={handleGenerateEgg}>NEW EGG</div>
