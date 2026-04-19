@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
-import { leaveMap } from '../../server/actions';   // ← NEW IMPORT
+import { leaveMap } from '../../server/actions';
 
 export default function MapPage() {
   const [instanceId, setInstanceId] = useState<string | null>(null);
@@ -12,6 +12,7 @@ export default function MapPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [revealed, setRevealed] = useState(false);
+  const [lastPlayerCount, setLastPlayerCount] = useState(0); // for join/leave detection
 
   const router = useRouter();
 
@@ -21,12 +22,13 @@ export default function MapPage() {
     checkMapPermission();
   }, []);
 
-  // Auto-refresh every 4 seconds (now also reacts to other players leaving)
+  // Auto-refresh every 3 seconds during testing (faster for debug)
   useEffect(() => {
     if (!instanceId || !currentUserId) return;
+    console.log(`🔄 [MAP] Starting auto-refresh for instance ${instanceId}`);
     const interval = setInterval(() => {
       loadPlayersInInstance(instanceId, currentUserId);
-    }, 4000);
+    }, 3000);
     return () => clearInterval(interval);
   }, [instanceId, currentUserId]);
 
@@ -36,6 +38,7 @@ export default function MapPage() {
 
     const userId = session.user.id;
     setCurrentUserId(userId);
+    console.log(`🔑 [MAP] Authenticated as user: ${userId.slice(0, 8)}...`);
 
     const { data: state } = await supabase
       .from('evrima_player_state')
@@ -44,6 +47,7 @@ export default function MapPage() {
       .single();
 
     if (!state?.current_map_key || state.current_map_key !== 'forest') {
+      console.log('🚫 [MAP] Not in forest map → redirecting');
       return router.push('/hub');
     }
 
@@ -68,33 +72,54 @@ export default function MapPage() {
       .single();
 
     if (presence?.instance_id) {
+      console.log(`📍 [MAP] Current instance: ${presence.instance_id}`);
       setInstanceId(presence.instance_id);
       await loadPlayersInInstance(presence.instance_id, userId);
     }
   };
 
   const loadPlayersInInstance = async (instId: string, userId: string) => {
+    console.log(`🔍 [MAP REFRESH] Checking instance ${instId} at ${new Date().toLocaleTimeString()}`);
+
     const { data: presenceRows, error } = await supabase
       .from('evrima_player_presence')
       .select('user_id, dino_id')
       .eq('instance_id', instId);
 
     if (error) {
-      console.error('❌ Error loading presence:', error);
+      console.error('❌ [MAP] Error loading presence:', error);
       return;
     }
 
-    console.log(`📡 Raw presence rows found: ${presenceRows?.length || 0}`);
+    console.log(`📡 [MAP] Raw presence rows found: ${presenceRows?.length || 0}`);
 
     if (!presenceRows || presenceRows.length === 0) {
       setPlayers([]);
+      setLastPlayerCount(0);
       return;
     }
 
-    const otherPresences = presenceRows.filter(p => p.user_id !== userId);
-    console.log(`📡 Other players in instance: ${otherPresences.length}`);
+    // Log every player currently in the instance
+    presenceRows.forEach(p => {
+      const isSelf = p.user_id === userId;
+      console.log(`👤 [MAP] Presence → user: ${p.user_id.slice(0, 8)}... | dino_id: ${p.dino_id ? p.dino_id.slice(0, 8) : 'null'} | ${isSelf ? '(YOU)' : '(OTHER)'}`);
+    });
 
-    if (otherPresences.length === 0) {
+    const otherPresences = presenceRows.filter(p => p.user_id !== userId);
+    const currentOtherCount = otherPresences.length;
+
+    console.log(`📊 [MAP] Other players detected: ${currentOtherCount}`);
+
+    // Join/Leave detection
+    if (currentOtherCount > lastPlayerCount) {
+      console.log(`🟢 [MAP] PLAYER JOINED INSTANCE (+${currentOtherCount - lastPlayerCount})`);
+    } else if (currentOtherCount < lastPlayerCount) {
+      console.log(`🔴 [MAP] PLAYER LEFT INSTANCE (-${lastPlayerCount - currentOtherCount})`);
+    }
+
+    setLastPlayerCount(currentOtherCount);
+
+    if (currentOtherCount === 0) {
       setPlayers([]);
       return;
     }
@@ -115,29 +140,27 @@ export default function MapPage() {
     });
 
     setPlayers(combined);
-    console.log(`✅ Final other players loaded: ${combined.length}`);
+    console.log(`✅ [MAP] Final other players loaded: ${combined.length}`);
   };
 
-  // DEBUG REVEAL BUTTON
   const handleRevealNearby = () => {
-    console.log('🔍 REVEAL NEARBY DINOSAUR clicked');
-    console.log('Full nearby dino data:', players);
+    console.log('🔍 [MAP] REVEAL NEARBY DINOSAUR clicked');
+    console.log('Full nearby data:', players);
     setRevealed(true);
   };
 
-  // NEW: Proper leave logic
   const handleReturnToHub = async () => {
+    console.log('🚪 [MAP] RETURN TO HUB clicked – attempting to leave map...');
     if (!currentUserId) {
       router.push('/hub');
       return;
     }
 
-    console.log('🚪 Leaving map...');
     try {
-      await leaveMap();           // ← Calls the new server action
-      console.log('✅ Successfully left map');
+      await leaveMap();
+      console.log('✅ [MAP] leaveMap() succeeded');
     } catch (err) {
-      console.error('⚠️ Leave map failed (still navigating):', err);
+      console.error('⚠️ [MAP] leaveMap() failed:', err);
     }
 
     router.push('/hub');
@@ -149,13 +172,7 @@ export default function MapPage() {
     <>
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-        html, body {
-          height: 100%;
-          overflow: auto;
-          background: #0a1f0a;
-          color: #0f0;
-          font-family: 'Press Start 2P', system-ui;
-        }
+        html, body { height: 100%; overflow: auto; background: #0a1f0a; color: #0f0; font-family: 'Press Start 2P', system-ui; }
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #0f0; border-radius: 20px; }
@@ -169,19 +186,12 @@ export default function MapPage() {
         .loading { height: 100vh; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; text-shadow: 0 0 12px #0f0; }
         .footer { position: relative; z-index: 10000; display: flex; justify-content: center; align-items: center; padding: 12px; border-top: 4px solid #0f0; font-size: 0.9rem; gap: 12px; }
         .player-item { padding: 10px 14px; border-bottom: 1px dotted #0f0; font-size: 0.82rem; color: #0ff; }
-        .reveal-btn {
-          border: 3px solid #ff0;
-          background: #112211;
-          color: #ff0;
-          padding: 14px 24px;
-          font-family: 'Press Start 2P', system-ui;
-          font-size: 0.95rem;
-          text-transform: uppercase;
-          letter-spacing: 2px;
-          cursor: pointer;
-          transition: all 0.2s;
+        .reveal-btn, .force-btn {
+          border: 3px solid #ff0; background: #112211; color: #ff0; padding: 14px 24px;
+          font-family: 'Press Start 2P', system-ui; font-size: 0.95rem; text-transform: uppercase;
+          letter-spacing: 2px; cursor: pointer; transition: all 0.2s;
         }
-        .reveal-btn:hover { background: #ff0; color: #111133; }
+        .reveal-btn:hover, .force-btn:hover { background: #ff0; color: #111133; }
         @media (max-width: 900px) {
           .root { grid-template-rows: 70px 1fr 80px; }
           .main { grid-template-columns: 1fr; gap: 16px; padding: 16px 12px; }
@@ -206,15 +216,9 @@ export default function MapPage() {
             <div className="scroll" style={{ padding: '20px' }}>
               {selectedDino ? (
                 <>
-                  <div style={{ fontSize: '2.2rem', textAlign: 'center', marginBottom: '12px' }}>
-                    {selectedDino.stage === 'egg' ? '🪺' : '🦕'}
-                  </div>
-                  <div style={{ textAlign: 'center', fontSize: '1.3rem', marginBottom: '8px' }}>
-                    {selectedDino.dino_name}
-                  </div>
-                  <div style={{ textAlign: 'center', color: '#0ff', fontSize: '0.95rem' }}>
-                    {selectedDino.stage} • {round(selectedDino.growth)}%
-                  </div>
+                  <div style={{ fontSize: '2.2rem', textAlign: 'center', marginBottom: '12px' }}>{selectedDino.stage === 'egg' ? '🪺' : '🦕'}</div>
+                  <div style={{ textAlign: 'center', fontSize: '1.3rem', marginBottom: '8px' }}>{selectedDino.dino_name}</div>
+                  <div style={{ textAlign: 'center', color: '#0ff', fontSize: '0.95rem' }}>{selectedDino.stage} • {round(selectedDino.growth)}%</div>
                 </>
               ) : (
                 <p style={{ textAlign: 'center', opacity: 0.5 }}>NO DINO SELECTED</p>
@@ -222,7 +226,7 @@ export default function MapPage() {
             </div>
           </div>
 
-          {/* CENTER - MAP AREA WITH REVEAL BUTTON */}
+          {/* CENTER - MAP AREA */}
           <div className="panel map-area">
             <div style={{ textAlign: 'center', zIndex: 2 }}>
               🌲 <strong>FOREST</strong> 🌲<br />
@@ -233,12 +237,12 @@ export default function MapPage() {
               </div>
             </div>
 
-            <button 
-              className="reveal-btn"
-              onClick={handleRevealNearby}
-              style={{ zIndex: 3 }}
-            >
+            <button className="reveal-btn" onClick={handleRevealNearby} style={{ zIndex: 3 }}>
               REVEAL NEARBY DINOSAUR
+            </button>
+
+            <button className="force-btn" onClick={() => currentUserId && instanceId && loadPlayersInInstance(instanceId, currentUserId)} style={{ zIndex: 3, fontSize: '0.8rem' }}>
+              FORCE REFRESH MAP
             </button>
           </div>
 
@@ -281,7 +285,7 @@ export default function MapPage() {
               <div style={{ marginTop: '40px' }}>
                 <button 
                   style={{ width: '100%', padding: '14px', background: '#112211', border: '3px solid #0ff', color: '#0ff', cursor: 'pointer', fontFamily: 'Press Start 2P, system-ui', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '2px' }}
-                  onClick={handleReturnToHub}   {/* ← NOW CALLS leaveMap */}
+                  onClick={handleReturnToHub}
                 >
                   ← RETURN TO HUB
                 </button>
