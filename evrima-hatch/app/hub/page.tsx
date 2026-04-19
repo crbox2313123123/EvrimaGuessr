@@ -237,13 +237,16 @@ export default function HubPage() {
     return () => clearInterval(interval);
   }, [userId]);
 
+  // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (optionsButtonRef.current && !optionsButtonRef.current.contains(e.target as Node)) {
         setShowOptionsMenu(false);
       }
     };
-    if (showOptionsMenu) document.addEventListener('mousedown', handleClickOutside);
+    if (showOptionsMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showOptionsMenu]);
 
@@ -362,6 +365,7 @@ export default function HubPage() {
           min-height: 100vh; 
           display: grid; 
           grid-template-rows: 80px 1fr 80px; 
+          position: relative;
         }
 
         .main {
@@ -538,7 +542,7 @@ export default function HubPage() {
           padding-right: 8px;
         }
 
-        /* Footer with high z-index */
+        /* Footer */
         .footer-buttons {
           position: relative;
           z-index: 10000;
@@ -548,25 +552,26 @@ export default function HubPage() {
           border-top: 4px solid #0f0;
         }
 
-        /* Context menu - very high z-index */
+        /* Context menu - now at root level with fixed positioning */
         .options-menu {
-          position: absolute;
-          bottom: 100%;
+          position: fixed;
+          bottom: 90px;
           left: 50%;
           transform: translateX(-50%);
           background: #111133;
           border: 4px solid #0f0;
-          box-shadow: 0 0 25px #0f0;
-          padding: 8px 0;
-          min-width: 280px;
+          box-shadow: 0 0 30px #0f0;
+          padding: 12px 0;
+          min-width: 320px;
           z-index: 99999;
           display: flex;
           flex-direction: column;
           gap: 4px;
+          border-radius: 4px;
         }
 
         .menu-item {
-          padding: 12px 24px;
+          padding: 14px 28px;
           font-family: 'Press Start 2P', system-ui;
           font-size: 0.95rem;
           color: #0f0;
@@ -580,8 +585,17 @@ export default function HubPage() {
           color: #111133;
         }
 
-        /* MOBILE */
+        /* Mobile full-screen menu */
         @media (max-width: 900px) {
+          .options-menu {
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            transform: none;
+            min-width: auto;
+            max-height: 85vh;
+            overflow-y: auto;
+          }
           .root { 
             grid-template-rows: 70px auto 80px; 
             min-height: 100vh;
@@ -614,9 +628,6 @@ export default function HubPage() {
             max-height: 240px;
           }
           .scroll { padding: 10px; }
-          .options-menu {
-            min-width: 260px;
-          }
         }
 
         @media (max-width: 600px) {
@@ -778,7 +789,7 @@ export default function HubPage() {
           </div>
         </div>
 
-        {/* FOOTER - single OPTIONS button with high z-index */}
+        {/* FOOTER - single OPTIONS button */}
         <div className="panel footer-buttons" style={{ position: 'relative', zIndex: 10000 }}>
           <button 
             ref={optionsButtonRef}
@@ -789,18 +800,18 @@ export default function HubPage() {
           >
             OPTIONS
           </button>
-
-          {/* Context menu above the button */}
-          {showOptionsMenu && (
-            <div className="options-menu">
-              <div className="menu-item" onClick={handleGenerateEgg}>NEW EGG</div>
-              <div className="menu-item" style={{ color: '#ff0' }} onClick={handleServerTick}>SERVER TICK</div>
-              <div className="menu-item" style={{ color: '#0ff' }} onClick={handleRecalculate}>RECALC STATS</div>
-              <div className="menu-item" style={{ color: '#f44' }} onClick={handleClearAllDinos}>CLEAR ALL</div>
-              <div className="menu-item" style={{ color: '#0ff' }} onClick={handleEnterMap}>ENTER FOREST MAP</div>
-            </div>
-          )}
         </div>
+
+        {/* CONTEXT MENU - rendered at root level so it can overlay everything */}
+        {showOptionsMenu && (
+          <div className="options-menu">
+            <div className="menu-item" onClick={handleGenerateEgg}>NEW EGG</div>
+            <div className="menu-item" style={{ color: '#ff0' }} onClick={handleServerTick}>SERVER TICK</div>
+            <div className="menu-item" style={{ color: '#0ff' }} onClick={handleRecalculate}>RECALC STATS</div>
+            <div className="menu-item" style={{ color: '#f44' }} onClick={handleClearAllDinos}>CLEAR ALL</div>
+            <div className="menu-item" style={{ color: '#0ff' }} onClick={handleEnterMap}>ENTER FOREST MAP</div>
+          </div>
+        )}
       </div>
     </>
   );
