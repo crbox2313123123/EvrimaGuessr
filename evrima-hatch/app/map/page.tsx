@@ -89,17 +89,12 @@ export default function MapPage() {
   }, [instanceId, currentUserId, currentDinoId]);
 
   const loadPlayers = async () => {
-    console.log("🔍 loadPlayers called with:", { instanceId, currentUserId, currentDinoId });
-
     const { data, error } = await supabase.rpc('get_nearby_dinos', {
       p_instance_id: instanceId,
       p_observer_user_id: currentUserId,
       p_observer_dino_id: currentDinoId,
       p_reveal_radius: 200
     });
-
-    console.log("players:", data);
-    console.log("rpc error:", error);
 
     setPlayers(data || []);
 
@@ -111,9 +106,6 @@ export default function MapPage() {
 
     if (entity) {
       setOwnPosition({ x: entity.position_x, y: entity.position_y });
-      console.log(`📍 Own real position loaded: (${entity.position_x}, ${entity.position_y})`);
-    } else {
-      console.log("❌ No entity row found for own dino!");
     }
 
     updateDinoSprites(data || []);
@@ -139,11 +131,9 @@ export default function MapPage() {
     channelRef.current = channel;
   };
 
-  // NEW REACTIVE EFFECT - creates/updates own dino when data is ready
+  // Reactive own dino update (GPT architecture)
   useEffect(() => {
     if (!viewportRef.current || !selectedDino || !currentDinoId || !ownPosition) return;
-
-    console.log("🔄 Reactive effect: selectedDino + ownPosition ready - creating own sprite");
 
     const viewport = viewportRef.current;
 
@@ -152,20 +142,16 @@ export default function MapPage() {
       const stage = (selectedDino.stage || 'baby').toLowerCase();
       const species = (selectedDino.species_key || 'raptor').toLowerCase();
       const path = `/sprites/templates/${species}_${stage}_sprite.png`;
-      console.log(`🦕 Creating own dino sprite: ${path}`);
 
       sprite = PIXI.Sprite.from(path);
       sprite.anchor.set(0.5);
-      sprite.scale.set(3.0);      // large for testing
-      sprite.tint = 0xff0000;     // bright red for testing
+      sprite.scale.set(0.9);
       viewport.addChild(sprite);
       spritesRef.current.set(currentDinoId, sprite);
-      console.log("✅ Own sprite added to viewport");
     }
 
     sprite.x = ownPosition.x;
     sprite.y = ownPosition.y;
-    console.log(`📍 Own dino position updated to (${ownPosition.x}, ${ownPosition.y})`);
   }, [selectedDino, currentDinoId, ownPosition]);
 
   useEffect(() => {
@@ -200,7 +186,7 @@ export default function MapPage() {
     ];
     await PIXI.Assets.load(spritePaths).catch(() => {});
 
-    // Background (added last so sprites are on top)
+    // Background (last, so sprites are on top)
     try {
       const texture = await PIXI.Assets.load('/islemap.png');
       const bg = new PIXI.Sprite(texture);
@@ -208,31 +194,11 @@ export default function MapPage() {
       bg.x = 1250;
       bg.y = 1000;
       viewport.addChild(bg);
-      console.log('✅ MAP BACKGROUND LOADED at center (1250,1000)');
     } catch (err) {
       console.error('❌ MAP BACKGROUND FAILED', err);
     }
 
-    console.log('✅ PIXI + MAP LOADED');
-
-    // Camera
-    viewport.x = app.screen.width / 2 - 1250 * 0.65;
-    viewport.y = app.screen.height / 2 - 1000 * 0.65;
-    viewport.scale.set(0.65);
-
-    // Smooth zoom-in
-    let currentScale = 0.65;
-    const targetScale = 1.05;
-    const zoomInterval = setInterval(() => {
-      currentScale = currentScale * 0.92 + targetScale * 0.08;
-      if (Math.abs(currentScale - targetScale) < 0.01) {
-        currentScale = targetScale;
-        clearInterval(zoomInterval);
-      }
-      viewport.scale.set(currentScale);
-    }, 16);
-
-    // Controls
+    // Camera controls
     let isDragging = false;
     let lastX = 0;
     let lastY = 0;
@@ -263,9 +229,6 @@ export default function MapPage() {
     if (!viewportRef.current) return;
     const viewport = viewportRef.current;
 
-    console.log(`🔄 Updating sprites - nearby: ${nearbyData.length}`);
-
-    // Nearby only (own dino handled in dedicated effect)
     nearbyData.forEach((item) => {
       const dinoId = item.dino_id.toString();
       let sprite = spritesRef.current.get(dinoId);
@@ -273,7 +236,6 @@ export default function MapPage() {
         const stage = (item.stage || 'baby').toLowerCase();
         const species = (item.species_key || 'raptor').toLowerCase();
         const path = `/sprites/templates/${species}_${stage}_sprite.png`;
-        console.log(`🦕 Creating nearby sprite: ${path}`);
         sprite = PIXI.Sprite.from(path);
         sprite.anchor.set(0.5);
         sprite.scale.set(0.8);
