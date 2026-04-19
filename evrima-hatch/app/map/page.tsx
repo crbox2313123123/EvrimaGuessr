@@ -112,7 +112,9 @@ export default function MapPage() {
 
     if (entity) {
       setOwnPosition({ x: entity.position_x, y: entity.position_y });
-      console.log(`📍 Own real position: (${entity.position_x}, ${entity.position_y})`);
+      console.log(`📍 Own real position loaded: (${entity.position_x}, ${entity.position_y})`);
+    } else {
+      console.log("❌ No entity row found for own dino!");
     }
 
     updateDinoSprites(data || []);
@@ -160,7 +162,7 @@ export default function MapPage() {
     app.stage.addChild(viewport);
     viewportRef.current = viewport;
 
-    // Defensive preload - only existing sprites
+    // Preload sprites
     const spritePaths = [
       '/sprites/templates/raptor_baby_sprite.png',
       '/sprites/templates/raptor_juvenile_sprite.png',
@@ -202,7 +204,7 @@ export default function MapPage() {
       viewport.scale.set(currentScale);
     }, 16);
 
-    // Pan + zoom controls (unchanged)
+    // Pan + zoom controls
     let isDragging = false;
     let lastX = 0;
     let lastY = 0;
@@ -230,28 +232,41 @@ export default function MapPage() {
   };
 
   const updateDinoSprites = (nearbyData: any[]) => {
-    if (!viewportRef.current) return;
+    if (!viewportRef.current) {
+      console.log("❌ updateDinoSprites: no viewport yet");
+      return;
+    }
     const viewport = viewportRef.current;
 
     console.log(`🔄 Updating sprites - nearby: ${nearbyData.length}`);
 
-    // Own dino
+    // === OWN DINO BLOCK WITH HEAVY DEBUG ===
+    console.log("Own dino check → selectedDino:", !!selectedDino, "currentDinoId:", !!currentDinoId, "ownPosition:", ownPosition);
+
     if (selectedDino && currentDinoId && ownPosition) {
+      console.log("✅ Own dino condition passed - attempting to create/update sprite");
+
       let sprite = spritesRef.current.get(currentDinoId);
       if (!sprite) {
         const stage = (selectedDino.stage || 'baby').toLowerCase();
         const species = (selectedDino.species_key || 'raptor').toLowerCase();
         const path = `/sprites/templates/${species}_${stage}_sprite.png`;
         console.log(`🦕 Creating own dino sprite: ${path}`);
+
         sprite = PIXI.Sprite.from(path);
         sprite.anchor.set(0.5);
         sprite.scale.set(0.9);
         viewport.addChild(sprite);
         spritesRef.current.set(currentDinoId, sprite);
+      } else {
+        console.log("Own sprite already exists, updating position");
       }
+
       sprite.x = ownPosition.x;
       sprite.y = ownPosition.y;
       console.log(`📍 Own dino position updated to (${ownPosition.x}, ${ownPosition.y})`);
+    } else {
+      console.log("❌ Own dino condition FAILED - skipping creation");
     }
 
     // Nearby dinos
