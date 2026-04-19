@@ -109,6 +109,11 @@ export default function MapPage() {
       p_observer_user_id: currentUserId,
       p_observer_dino_id: currentDinoId,
       p_reveal_radius: 200
+
+      console.log("📊 RPC result:", { data, error });
+
+    setPlayers(data || []);
+    updateDinoSprites(data || []);
     });
 
     setPlayers(data || []);
