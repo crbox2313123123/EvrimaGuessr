@@ -518,8 +518,9 @@ export default function HubPage() {
           .centerCard { 
             padding: 16px; 
             font-size: 1rem; 
+            min-height: 220px; /* More room for big dino picture */
           }
-          .dinoIcon { font-size: 65px; }
+          .dinoIcon { font-size: 72px; }
           .stat-row { 
             grid-template-columns: 1fr; 
             gap: 6px; 
@@ -530,6 +531,14 @@ export default function HubPage() {
             font-size: 0.95rem; 
             flex: 1 1 auto;
             min-width: 140px;
+          }
+          /* Dino Bank gets decent minimum height */
+          .dino-bank-panel {
+            min-height: 180px;
+            max-height: 320px;
+          }
+          .more-options-panel {
+            height: 100px;
           }
           .scroll { padding: 10px; }
         }
@@ -550,9 +559,9 @@ export default function HubPage() {
         </header>
 
         <div className="main">
-          {/* LEFT - DINO BANK - Given more room on mobile */}
+          {/* LEFT - DINO BANK */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minHeight: 0 }}>
-            <div className="panel" style={{ flex: '1 1 auto' }}>
+            <div className="panel dino-bank-panel">
               <div style={{ padding: '14px 18px', background: '#0a0a1f', borderBottom: '3px solid #0f0', fontSize: '0.95rem', textShadow: '0 0 8px #0f0' }}>DINO BANK</div>
               <div className="scroll">
                 {dinos.map(d => (
@@ -574,14 +583,15 @@ export default function HubPage() {
               </div>
             </div>
 
-            <div className="panel" style={{ height: '140px', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', textShadow: '0 0 8px #0f0' }}>
+            {/* MORE OPTIONS - Now smaller and below Dino Bank on mobile */}
+            <div className="panel more-options-panel" style={{ height: '100px', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', textShadow: '0 0 8px #0f0' }}>
               MORE OPTIONS<br/>
               <span style={{ fontSize: '0.7rem', opacity: 0.6 }}>COMING SOON</span>
             </div>
           </div>
 
-          {/* CENTER - SELECTED DINO - More room for picture */}
-          <div className="panel centerCard" style={{ flex: '1 1 auto' }}>
+          {/* CENTER - SELECTED DINO - Now takes more space on mobile */}
+          <div className="panel centerCard" style={{ flex: '1 1 auto', minHeight: '260px' }}>
             {selected ? (
               <>
                 <div className="dinoIcon">{selected.stage === 'egg' ? '🪺' : '🦕'}</div>
@@ -600,7 +610,7 @@ export default function HubPage() {
             )}
           </div>
 
-          {/* RIGHT - LIVE STATS - Reduced height on mobile */}
+          {/* RIGHT - LIVE STATS - More compact on mobile */}
           <div className="panel" style={{ flex: '1 1 auto' }}>
             <div style={{ padding: '14px 18px', background: '#0a0a1f', borderBottom: '3px solid #0f0', fontSize: '0.95rem', textShadow: '0 0 8px #0f0' }}>LIVE STATS</div>
             <div className="scroll" style={{ padding: '14px 18px' }}>
