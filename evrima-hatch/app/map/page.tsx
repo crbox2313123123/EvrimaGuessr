@@ -168,7 +168,7 @@ export default function MapPage() {
     app.stage.addChild(viewport);
     viewportRef.current = viewport;
 
-    // Preload
+    // Preload sprites
     const spritePaths = [
       '/sprites/templates/raptor_baby_sprite.png',
       '/sprites/templates/raptor_juvenile_sprite.png',
@@ -180,12 +180,43 @@ export default function MapPage() {
 
     console.log('✅ PIXI + MAP LOADED');
 
-    // Camera
+    // === SPRITES FIRST ===
+    if (selectedDino && currentDinoId && ownPosition) {
+      const stage = (selectedDino.stage || 'baby').toLowerCase();
+      const species = (selectedDino.species_key || 'raptor').toLowerCase();
+      const path = `/sprites/templates/${species}_${stage}_sprite.png`;
+      console.log(`🦕 Creating own dino sprite: ${path}`);
+
+      const sprite = PIXI.Sprite.from(path);
+      sprite.anchor.set(0.5);
+      sprite.scale.set(3.0);      // LARGE RED FOR TESTING
+      sprite.tint = 0xff0000;
+      viewport.addChild(sprite);
+      spritesRef.current.set(currentDinoId, sprite);
+      sprite.x = ownPosition.x;
+      sprite.y = ownPosition.y;
+      console.log(`📍 Own dino placed at (${ownPosition.x}, ${ownPosition.y})`);
+    }
+
+    // === BACKGROUND LAST (so sprites are on top) ===
+    try {
+      const texture = await PIXI.Assets.load('/islemap.png');
+      const bg = new PIXI.Sprite(texture);
+      bg.anchor.set(0.5);
+      bg.x = 1250;
+      bg.y = 1000;
+      viewport.addChild(bg);
+      console.log('✅ MAP BACKGROUND LOADED at center (1250,1000)');
+    } catch (err) {
+      console.error('❌ MAP BACKGROUND FAILED', err);
+    }
+
+    // Camera reset to make sure map + sprite are visible
     viewport.x = app.screen.width / 2 - 1250 * 0.65;
     viewport.y = app.screen.height / 2 - 1000 * 0.65;
     viewport.scale.set(0.65);
 
-    // Smooth zoom
+    // Smooth zoom-in
     let currentScale = 0.65;
     const targetScale = 1.05;
     const zoomInterval = setInterval(() => {
@@ -229,11 +260,8 @@ export default function MapPage() {
     const viewport = viewportRef.current;
 
     console.log(`🔄 Updating sprites - nearby: ${nearbyData.length}`);
-    console.log("Own dino state check → selectedDino:", !!selectedDino, "currentDinoId:", !!currentDinoId, "ownPosition:", ownPosition);
 
-    if (selectedDino && currentDinoId) {
-      console.log("✅ Own dino data exists - proceeding");
-
+    if (selectedDino && currentDinoId && ownPosition) {
       let sprite = spritesRef.current.get(currentDinoId);
       if (!sprite) {
         const stage = (selectedDino.stage || 'baby').toLowerCase();
@@ -243,39 +271,16 @@ export default function MapPage() {
 
         sprite = PIXI.Sprite.from(path);
         sprite.anchor.set(0.5);
-        sprite.scale.set(3.0);      // LARGE FOR TESTING
-        sprite.tint = 0xff0000;     // BRIGHT RED FOR TESTING
+        sprite.scale.set(3.0);
+        sprite.tint = 0xff0000;
         viewport.addChild(sprite);
         spritesRef.current.set(currentDinoId, sprite);
-        console.log("✅ Own sprite added to viewport (on top of background)");
+        console.log("✅ Own sprite added to viewport");
       }
-
-      if (ownPosition) {
-        sprite.x = ownPosition.x;
-        sprite.y = ownPosition.y;
-        console.log(`📍 Own dino position updated to (${ownPosition.x}, ${ownPosition.y})`);
-      }
-    } else {
-      console.log("❌ Own dino block skipped");
+      sprite.x = ownPosition.x;
+      sprite.y = ownPosition.y;
+      console.log(`📍 Own dino position updated to (${ownPosition.x}, ${ownPosition.y})`);
     }
-
-    nearbyData.forEach((item) => {
-      const dinoId = item.dino_id.toString();
-      let sprite = spritesRef.current.get(dinoId);
-      if (!sprite) {
-        const stage = (item.stage || 'baby').toLowerCase();
-        const species = (item.species_key || 'raptor').toLowerCase();
-        const path = `/sprites/templates/${species}_${stage}_sprite.png`;
-        console.log(`🦕 Creating nearby sprite: ${path}`);
-        sprite = PIXI.Sprite.from(path);
-        sprite.anchor.set(0.5);
-        sprite.scale.set(0.8);
-        viewport.addChild(sprite);
-        spritesRef.current.set(dinoId, sprite);
-      }
-      sprite.x = item.position_x || 1250;
-      sprite.y = item.position_y || 1000;
-    });
   };
 
   const handleReturnToHub = async () => {
