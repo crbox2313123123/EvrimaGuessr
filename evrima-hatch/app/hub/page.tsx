@@ -226,7 +226,7 @@ export default function HubPage() {
     return () => clearInterval(interval);
   }, [userId]);
 
-  // Context menu
+  // Context menu logic
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
@@ -393,9 +393,10 @@ export default function HubPage() {
           font-size: 0.88rem;
           color: #0f0;
           text-shadow: 0 0 6px #0f0;
-          min-height: 72px;           /* ← increased for desktop */
+          min-height: 78px;           /* ← more breathing room on desktop */
           display: flex;
-          align-items: center;
+          flex-direction: column;
+          justify-content: center;
         }
         .dinoItem:hover { background: rgba(15,240,0,0.12); transform: translateX(6px); }
         .centerCard {
@@ -559,7 +560,7 @@ export default function HubPage() {
           color: #111133;
         }
 
-        /* MOBILE - unchanged */
+        /* MOBILE */
         @media (max-width: 900px) {
           .options-menu {
             bottom: 20px;
@@ -637,10 +638,10 @@ export default function HubPage() {
                       borderLeft: selected?.id === d.id ? '6px solid #0f0' : 'none'
                     }}
                   >
-                    {d.dino_name}
-                    <span style={{ fontSize: '0.75rem', opacity: 0.7, float: 'right', color: '#0ff' }}>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 'bold' }}>{d.dino_name}</div>
+                    <div style={{ fontSize: '0.72rem', opacity: 0.75, marginTop: '4px' }}>
                       {(d.location || 'HUB').toUpperCase()} • {d.stage} • {round(d.growth)}%
-                    </span>
+                    </div>
                   </div>
                 ))}
               </div>
