@@ -356,13 +356,14 @@ export default function HubPage() {
           min-height: 0;
           text-transform: uppercase;
           letter-spacing: 2px;
+          overflow: hidden;
         }
 
         .scroll { 
           overflow-y: auto; 
           flex: 1; 
           min-height: 0; 
-          padding: 8px; 
+          padding: 12px; 
         }
 
         .dinoItem {
@@ -506,18 +507,42 @@ export default function HubPage() {
             gap: 16px;
             padding: 16px 12px;
           }
-          .panel { min-height: auto; }
-          .dinoItem { font-size: 0.85rem; padding: 12px 14px; }
-          .centerCard { padding: 16px; font-size: 1rem; }
-          .dinoIcon { font-size: 60px; }
-          .stat-row { grid-template-columns: 1fr; gap: 4px; font-size: 0.75rem; }
-          .btn { padding: 10px 16px; font-size: 0.95rem; }
-          .footer-buttons { flex-wrap: wrap; gap: 8px; justify-content: center; }
+          .panel {
+            min-height: auto;
+            border-width: 3px;
+          }
+          .dinoItem { 
+            font-size: 0.88rem; 
+            padding: 12px 14px; 
+          }
+          .centerCard { 
+            padding: 16px; 
+            font-size: 1rem; 
+          }
+          .dinoIcon { font-size: 65px; }
+          .stat-row { 
+            grid-template-columns: 1fr; 
+            gap: 6px; 
+            font-size: 0.78rem; 
+          }
+          .btn { 
+            padding: 11px 18px; 
+            font-size: 0.95rem; 
+            flex: 1 1 auto;
+            min-width: 140px;
+          }
+          .footer-buttons { 
+            flex-wrap: wrap; 
+            gap: 10px; 
+            justify-content: center; 
+          }
+          .scroll { padding: 10px; }
         }
 
         @media (max-width: 600px) {
           .main { padding: 12px 8px; }
           .header-text { font-size: 1rem; }
+          .panel { border-width: 3px; }
         }
       `}</style>
 
@@ -617,9 +642,8 @@ export default function HubPage() {
 
               {showAdvanced && (
                 <div style={{ marginTop: '12px' }}>
-                  {/* All your advanced stats remain unchanged */}
                   <div className="section-header">ADVANCED STATS</div>
-                  {/* ... (the rest of your advanced stats section stays exactly the same) ... */}
+
                   <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '8px' }}>EMOTIONS &amp; DRIVES</div>
                   <div className="stat-row"><span>AGGRESSION</span><span>{round(selected?.aggression)}</span></div>
                   <div className="stat-row"><span>FEAR</span><span>{round(selected?.fear)}</span></div>
@@ -631,7 +655,49 @@ export default function HubPage() {
                   <div className="stat-row"><span>BOREDOM</span><span>{round(selected?.boredom)}</span></div>
                   <div className="stat-row"><span>ALERTNESS</span><span>{round(selected?.alertness)}</span></div>
 
-                  {/* ... rest of advanced stats unchanged ... */}
+                  <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>BEHAVIORAL TRAITS</div>
+                  <div className="stat-row"><span>BOLDNESS</span><span>{round(selected?.boldness)}</span></div>
+                  <div className="stat-row"><span>PATIENCE</span><span>{round(selected?.patience)}</span></div>
+                  <div className="stat-row"><span>INTELLIGENCE</span><span>{round(selected?.intelligence)}</span></div>
+                  <div className="stat-row"><span>LOYALTY</span><span>{round(selected?.loyalty)}</span></div>
+                  <div className="stat-row"><span>OPPORTUNISM</span><span>{round(selected?.opportunism)}</span></div>
+                  <div className="stat-row"><span>CAUTION</span><span>{round(selected?.caution)}</span></div>
+
+                  <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>SOCIAL GENETICS</div>
+                  <div className="stat-row"><span>PACK AFFINITY</span><span>{round(selected?.pack_affinity)}</span></div>
+                  <div className="stat-row"><span>SUBMISSION TENDENCY</span><span>{round(selected?.submission_tendency)}</span></div>
+                  <div className="stat-row"><span>LEADERSHIP</span><span>{round(selected?.leadership)}</span></div>
+                  <div className="stat-row"><span>EMPATHY</span><span>{round(selected?.empathy)}</span></div>
+                  <div className="stat-row"><span>TOLERANCE</span><span>{round(selected?.tolerance)}</span></div>
+
+                  <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>COMBAT STYLE</div>
+                  <div className="stat-row"><span>FEROCITY</span><span>{round(selected?.ferocity)}</span></div>
+                  <div className="stat-row"><span>DEFENSIVENESS</span><span>{round(selected?.defensiveness)}</span></div>
+                  <div className="stat-row"><span>TARGET FOCUS</span><span>{round(selected?.target_focus)}</span></div>
+                  <div className="stat-row"><span>AMBUSH TENDENCY</span><span>{round(selected?.ambush_tendency)}</span></div>
+                  <div className="stat-row"><span>RISK ASSESSMENT</span><span>{round(selected?.risk_assessment)}</span></div>
+
+                  <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>PERCEPTION</div>
+                  <div className="stat-row"><span>VISION RANGE</span><span>{round(selected?.vision_range)}</span></div>
+                  <div className="stat-row"><span>NIGHT VISION</span><span>{round(selected?.night_vision)}</span></div>
+                  <div className="stat-row"><span>SMELL SENSITIVITY</span><span>{round(selected?.smell_sensitivity)}</span></div>
+                  <div className="stat-row"><span>HEARING SENSITIVITY</span><span>{round(selected?.hearing_sensitivity)}</span></div>
+
+                  <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>URGES</div>
+                  <div className="stat-row"><span>HUNGER URGE</span><span>{round(selected?.hunger_urge)}</span></div>
+                  <div className="stat-row"><span>THIRST URGE</span><span>{round(selected?.thirst_urge)}</span></div>
+                  <div className="stat-row"><span>REST URGE</span><span>{round(selected?.rest_urge)}</span></div>
+                  <div className="stat-row"><span>SAFETY URGE</span><span>{round(selected?.safety_urge)}</span></div>
+                  <div className="stat-row"><span>SOCIAL URGE</span><span>{round(selected?.social_urge)}</span></div>
+                  <div className="stat-row"><span>ESCAPE URGE</span><span>{round(selected?.escape_urge)}</span></div>
+
+                  <div className="section-header" style={{ fontSize: '0.78rem', marginTop: '16px' }}>STATE &amp; MISC</div>
+                  <div className="stat-row"><span>STANCE</span><span>{selected?.stance || 'neutral'}</span></div>
+                  <div className="stat-row"><span>GOAL PRIORITY</span><span>{round(selected?.goal_priority)}</span></div>
+                  <div className="stat-row"><span>ENGAGED</span><span>{selected?.engaged ? 'YES' : 'NO'}</span></div>
+                  <div className="stat-row"><span>REACTIVITY</span><span>{round(selected?.reactivity)}</span></div>
+                  <div className="stat-row"><span>COMMITMENT</span><span>{round(selected?.commitment)}</span></div>
+                  <div className="stat-row"><span>THREAT LEVEL</span><span>{round(selected?.threat_level)}</span></div>
                 </div>
               )}
             </div>
@@ -639,7 +705,7 @@ export default function HubPage() {
         </div>
 
         {/* FOOTER */}
-        <div className="panel" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '12px', borderTop: '4px solid #0f0', flexWrap: 'wrap', padding: '12px' }}>
+        <div className="panel" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '10px', borderTop: '4px solid #0f0', flexWrap: 'wrap', padding: '12px' }}>
           <button className="btn" onClick={handleGenerateEgg} disabled={actionLoading}>NEW EGG</button>
           <button className="btn yellow" onClick={handleServerTick} disabled={actionLoading}>SERVER TICK</button>
           <button className="btn blue" onClick={handleRecalculate} disabled={actionLoading}>RECALC STATS</button>
