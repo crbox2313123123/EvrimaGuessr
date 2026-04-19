@@ -24,6 +24,10 @@ export default function MapPage() {
   const spritesRef = useRef<Map<string, PIXI.Sprite>>(new Map());
   const channelRef = useRef<any>(null);
 
+  // For Paper Mario flip + tilt
+  const lastOwnX = useRef<number>(1250);
+  const flipCooldown = useRef<number>(0);
+
   const round = (val: any) => Math.round(Number(val) || 0);
 
   useEffect(() => {
@@ -131,7 +135,7 @@ export default function MapPage() {
     channelRef.current = channel;
   };
 
-  // Reactive own dino update (GPT architecture)
+  // Reactive own dino sprite (GPT architecture)
   useEffect(() => {
     if (!viewportRef.current || !selectedDino || !currentDinoId || !ownPosition) return;
 
@@ -149,6 +153,14 @@ export default function MapPage() {
       viewport.addChild(sprite);
       spritesRef.current.set(currentDinoId, sprite);
     }
+
+    // Paper Mario style flip with cooldown
+    const dx = ownPosition.x - lastOwnX.current;
+    if (Math.abs(dx) > 1 && Date.now() > flipCooldown.current) {
+      sprite.scale.x = dx > 0 ? 0.9 : -0.9;
+      flipCooldown.current = Date.now() + 300; // cooldown
+    }
+    lastOwnX.current = ownPosition.x;
 
     sprite.x = ownPosition.x;
     sprite.y = ownPosition.y;
@@ -186,7 +198,7 @@ export default function MapPage() {
     ];
     await PIXI.Assets.load(spritePaths).catch(() => {});
 
-    // Background (last, so sprites are on top)
+    // Background (last)
     try {
       const texture = await PIXI.Assets.load('/islemap.png');
       const bg = new PIXI.Sprite(texture);
@@ -198,37 +210,19 @@ export default function MapPage() {
       console.error('❌ MAP BACKGROUND FAILED', err);
     }
 
-    // Camera controls
-    let isDragging = false;
-    let lastX = 0;
-    let lastY = 0;
+    // Camera starts moderately zoomed in, centered on map (no edges)
+    viewport.x = app.screen.width / 2 - 1250 * 0.8;
+    viewport.y = app.screen.height / 2 - 1000 * 0.8;
+    viewport.scale.set(0.8);
 
-    app.canvas.addEventListener('pointerdown', (e) => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
-    app.canvas.addEventListener('pointermove', (e) => {
-      if (!isDragging) return;
-      viewport.x += e.clientX - lastX;
-      viewport.y += e.clientY - lastY;
-      lastX = e.clientX;
-      lastY = e.clientY;
-    });
-    app.canvas.addEventListener('pointerup', () => isDragging = false);
-    app.canvas.addEventListener('pointerleave', () => isDragging = false);
-
-    app.canvas.addEventListener('wheel', (e) => {
-      const factor = e.deltaY < 0 ? 1.1 : 0.9;
-      const mx = e.offsetX;
-      const my = e.offsetY;
-      viewport.scale.x *= factor;
-      viewport.scale.y *= factor;
-      viewport.x = mx - (mx - viewport.x) * factor;
-      viewport.y = my - (my - viewport.y) * factor;
-    });
+    console.log('✅ PIXI + MAP LOADED');
   };
 
   const updateDinoSprites = (nearbyData: any[]) => {
     if (!viewportRef.current) return;
     const viewport = viewportRef.current;
 
+    // Nearby dinos (future proof)
     nearbyData.forEach((item) => {
       const dinoId = item.dino_id.toString();
       let sprite = spritesRef.current.get(dinoId);
