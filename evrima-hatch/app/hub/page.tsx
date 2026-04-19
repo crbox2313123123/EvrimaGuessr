@@ -100,9 +100,11 @@ export default function HubPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const router = useRouter();
 
   const selectedIdRef = useRef<string | null>(null);
+  const optionsButtonRef = useRef<HTMLButtonElement>(null);
 
   const round = (val: any) => Math.round(Number(val) || 0);
 
@@ -235,6 +237,23 @@ export default function HubPage() {
     return () => clearInterval(interval);
   }, [userId]);
 
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (optionsButtonRef.current && !optionsButtonRef.current.contains(e.target as Node)) {
+        setShowOptionsMenu(false);
+      }
+    };
+    if (showOptionsMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showOptionsMenu]);
+
+  const handleOptionsClick = () => {
+    setShowOptionsMenu(!showOptionsMenu);
+  };
+
   const handleGenerateEgg = async () => {
     if (!userId) return;
     setActionLoading(true);
@@ -245,6 +264,7 @@ export default function HubPage() {
       console.error('Generate egg failed:', err);
     } finally {
       setActionLoading(false);
+      setShowOptionsMenu(false);
     }
   };
 
@@ -257,6 +277,7 @@ export default function HubPage() {
       console.error('Server tick failed:', err);
     } finally {
       setActionLoading(false);
+      setShowOptionsMenu(false);
     }
   };
 
@@ -270,6 +291,7 @@ export default function HubPage() {
       console.error('Recalculate failed:', err);
     } finally {
       setActionLoading(false);
+      setShowOptionsMenu(false);
     }
   };
 
@@ -286,12 +308,14 @@ export default function HubPage() {
       console.error('Clear dinos failed:', err);
     } finally {
       setActionLoading(false);
+      setShowOptionsMenu(false);
     }
   };
 
   const handleEnterMap = async () => {
     if (!selected) {
       alert('Select a dino first!');
+      setShowOptionsMenu(false);
       return;
     }
     setActionLoading(true);
@@ -303,6 +327,7 @@ export default function HubPage() {
       alert(err.message);
     } finally {
       setActionLoading(false);
+      setShowOptionsMenu(false);
     }
   };
 
@@ -516,18 +541,47 @@ export default function HubPage() {
           padding-right: 8px;
         }
 
-        /* Footer defaults to horizontal on desktop */
+        /* Footer button */
         .footer-buttons {
-          flex-direction: row;
-          align-items: center;
+          display: flex;
           justify-content: center;
-          gap: 10px;
-          border-top: 4px solid #0f0;
-          flex-wrap: wrap;
           padding: 12px;
+          border-top: 4px solid #0f0;
         }
 
-        /* MOBILE - force vertical stack */
+        /* Context menu */
+        .options-menu {
+          position: absolute;
+          bottom: 100%;
+          left: 50%;
+          transform: translateX(-50%);
+          background: #111133;
+          border: 4px solid #0f0;
+          box-shadow: 0 0 20px #0f0;
+          padding: 8px 0;
+          min-width: 280px;
+          z-index: 1000;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .menu-item {
+          padding: 12px 24px;
+          font-family: 'Press Start 2P', system-ui;
+          font-size: 0.95rem;
+          color: #0f0;
+          text-transform: uppercase;
+          letter-spacing: 2px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .menu-item:hover {
+          background: #0f0;
+          color: #111133;
+        }
+
+        /* MOBILE */
         @media (max-width: 900px) {
           .root { 
             grid-template-rows: 70px auto 80px; 
@@ -557,20 +611,13 @@ export default function HubPage() {
             gap: 6px; 
             font-size: 0.78rem; 
           }
-          .footer-buttons {
-            flex-direction: column !important;
-            gap: 12px !important;
-            padding: 16px !important;
-          }
-          .btn { 
-            padding: 12px 18px; 
-            font-size: 0.95rem; 
-            width: 100% !important;
-          }
           .dino-bank-panel {
             max-height: 240px;
           }
           .scroll { padding: 10px; }
+          .options-menu {
+            min-width: 260px;
+          }
         }
 
         @media (max-width: 600px) {
@@ -732,20 +779,28 @@ export default function HubPage() {
           </div>
         </div>
 
-        {/* FOOTER - horizontal on desktop, vertical on mobile */}
-        <div className="panel footer-buttons">
-          <button className="btn" onClick={handleGenerateEgg} disabled={actionLoading}>NEW EGG</button>
-          <button className="btn yellow" onClick={handleServerTick} disabled={actionLoading}>SERVER TICK</button>
-          <button className="btn blue" onClick={handleRecalculate} disabled={actionLoading}>RECALC STATS</button>
-          <button className="btn red" onClick={handleClearAllDinos} disabled={actionLoading}>CLEAR ALL</button>
+        {/* FOOTER - single OPTIONS button */}
+        <div className="panel footer-buttons" style={{ position: 'relative' }}>
           <button 
+            ref={optionsButtonRef}
             className="btn" 
-            style={{ background: '#0ff', color: '#111133', borderColor: '#0ff' }}
-            onClick={handleEnterMap} 
-            disabled={actionLoading || !selected}
+            onClick={handleOptionsClick}
+            disabled={actionLoading}
+            style={{ minWidth: '180px' }}
           >
-            ENTER FOREST MAP
+            OPTIONS
           </button>
+
+          {/* Context menu above the button */}
+          {showOptionsMenu && (
+            <div className="options-menu">
+              <div className="menu-item" onClick={handleGenerateEgg}>NEW EGG</div>
+              <div className="menu-item" style={{ color: '#ff0' }} onClick={handleServerTick}>SERVER TICK</div>
+              <div className="menu-item" style={{ color: '#0ff' }} onClick={handleRecalculate}>RECALC STATS</div>
+              <div className="menu-item" style={{ color: '#f44' }} onClick={handleClearAllDinos}>CLEAR ALL</div>
+              <div className="menu-item" style={{ color: '#0ff' }} onClick={handleEnterMap}>ENTER FOREST MAP</div>
+            </div>
+          )}
         </div>
       </div>
     </>
