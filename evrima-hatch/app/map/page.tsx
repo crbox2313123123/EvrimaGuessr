@@ -104,7 +104,7 @@ export default function MapPage() {
   }, [instanceId, currentUserId, currentDinoId]);
 
   const loadPlayers = async () => {
-    console.log("🔍 loadPlayers called with:", { 
+     console.log("🔍 loadPlayers called with:", {
       instanceId, 
       currentUserId, 
       currentDinoId 
@@ -117,7 +117,9 @@ export default function MapPage() {
       p_reveal_radius: 200
     });
 
-    console.log("📊 RPC result:", { data, error });
+  // 👇 THIS IS THE LINE YOU ADD (RIGHT HERE)
+  console.log("players:", data);
+  console.log("rpc error:", error);
 
     setPlayers(data || []);
     updateDinoSprites(data || []);
