@@ -20,6 +20,7 @@ export default function MapPage() {
 
   const pixiContainerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
+  const spritesRef = useRef<Map<string, PIXI.Sprite>>(new Map());
   const channelRef = useRef<any>(null);
 
   const round = (val: any) => Math.round(Number(val) || 0);
@@ -74,7 +75,6 @@ export default function MapPage() {
 
       await loadPlayers();
       setLoading(false);
-      console.log('✅ Data loaded - starting Pixi');
     } catch (err: any) {
       console.error('❌ DATA INIT FAILED', err);
       setError(err.message);
@@ -104,16 +104,12 @@ export default function MapPage() {
       pixiContainerRef.current!.appendChild(app.canvas);
       console.log('✅ app.canvas appended');
 
-      // Correct Pixi v8 way
-      console.log('📥 Loading map texture...');
-      const texture = await PIXI.Assets.load('/islemap.png');
-      console.log('✅ /islemap.png loaded successfully');
-
-      const bg = new PIXI.Sprite(texture);
+      // GPT fix - simple Sprite.from (no Assets.load)
+      const bg = PIXI.Sprite.from('/islemap.png');
       bg.anchor.set(0.5);
       bg.position.set(1250, 1000);
       app.stage.addChild(bg);
-      console.log('✅ Background added to stage');
+      console.log('✅ Background added with Sprite.from');
 
       updateDinoSprites(players);
     } catch (e) {
@@ -163,7 +159,7 @@ export default function MapPage() {
       sprite.y = ownPosition.y;
     }
 
-    // Nearby dinos (ready for future behavior updates)
+    // Nearby dinos (future-proof for behavior updates)
     nearbyData.forEach((p) => {
       const id = p.dino_id;
       if (!id || id === currentDinoId) return;
