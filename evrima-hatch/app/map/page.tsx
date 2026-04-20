@@ -24,7 +24,6 @@ export default function MapPage() {
 
   const round = (val: any) => Math.round(Number(val) || 0);
 
-  // 1. Load data
   useEffect(() => {
     console.log('🚀 MAP COMPONENT MOUNTED');
     initData();
@@ -75,7 +74,7 @@ export default function MapPage() {
 
       await loadPlayers();
       setLoading(false);
-      console.log('✅ Data loaded - loading=false');
+      console.log('✅ Data loaded - calling initPixi');
     } catch (err: any) {
       console.error('❌ DATA INIT FAILED', err);
       setError(err.message);
@@ -83,32 +82,41 @@ export default function MapPage() {
     }
   };
 
-  // 2. Initialize Pixi ONLY when the container ref exists
+  // Pixi only starts AFTER loading=false AND ref exists
   useEffect(() => {
     if (loading || !pixiContainerRef.current) return;
-    console.log('🎮 Pixi init triggered - container ref ready');
     initPixi();
   }, [loading]);
 
-  const initPixi = () => {
+  const initPixi = async () => {
+    console.log('🎮 initPixi() CALLED - using modern Pixi v8 style');
+
     if (appRef.current) return;
 
-    const app = new PIXI.Application({
-      backgroundColor: 0x00ff00,   // BRIGHT GREEN - we must see this
-      resizeTo: pixiContainerRef.current!,
-      antialias: true,
-    });
+    try {
+      const app = new PIXI.Application();
+      await app.init({
+        backgroundColor: 0x00ff00,   // BRIGHT GREEN - proof Pixi is alive
+        resizeTo: pixiContainerRef.current!,
+        antialias: true,
+      });
 
-    appRef.current = app;
-    pixiContainerRef.current!.appendChild(app.canvas);
-    console.log('✅ app.canvas appended - Pixi is alive');
+      appRef.current = app;
 
-    // Background (added after canvas is confirmed)
-    const bg = PIXI.Sprite.from('/islemap.png');
-    bg.anchor.set(0.5);
-    bg.position.set(1250, 1000);
-    app.stage.addChild(bg);
-    console.log('✅ Background loaded');
+      pixiContainerRef.current!.appendChild(app.canvas);
+      console.log('✅ app.canvas appended successfully');
+
+      // Background
+      const bg = PIXI.Sprite.from('/islemap.png');
+      bg.anchor.set(0.5);
+      bg.position.set(1250, 1000);
+      app.stage.addChild(bg);
+      console.log('✅ Background image added');
+
+      console.log('🎉 MAP SHOULD BE VISIBLE NOW');
+    } catch (e) {
+      console.error('❌ initPixi CRASHED', e);
+    }
   };
 
   const loadPlayers = async () => {
