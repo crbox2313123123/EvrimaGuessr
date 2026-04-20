@@ -24,92 +24,101 @@ export default function MapPage() {
 
   const round = (val: any) => Math.round(Number(val) || 0);
 
+  // 1. Load data
   useEffect(() => {
-    console.log('🚀 MAP PAGE MOUNTED');
-    init();
+    console.log('🚀 MAP COMPONENT MOUNTED');
+    initData();
     return cleanup;
   }, []);
 
-  const init = async () => {
-    console.log('🔄 init() started');
+  const initData = async () => {
+    console.log('🔄 initData started');
     try {
-      setError(null);
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.log('🚫 No session, redirecting to /hub');
+      if (!session) return router.push('/hub');
+
+      const userId = session.user.id;
+      setCurrentUserId(userId);
+
+      const { data: state } = await supabase
+        .from('evrima_player_state')
+        .select('current_map_key, selected_dino_id')
+        .eq('user_id', userId)
+        .single();
+
+      if (!state?.current_map_key || state.current_map_key !== 'forest') {
         router.push('/hub');
         return;
       }
 
-      const userId = session.user.id;
-      setCurrentUserId(userId);
-      console.log('✅ User authenticated');
+      setInstanceId(state.current_map_key);
 
-      // ... (rest of data loading stays the same as before, but I kept it short for clarity)
+      if (state.selected_dino_id) {
+        const { data: dino } = await supabase
+          .from('evrima_player_dinos')
+          .select('*')
+          .eq('id', state.selected_dino_id)
+          .single();
+        if (dino) {
+          setSelectedDino(dino);
+          setCurrentDinoId(dino.id);
+        }
+      }
+
+      const { data: entity } = await supabase
+        .from('evrima_instance_entities')
+        .select('position_x, position_y')
+        .eq('dino_id', state.selected_dino_id)
+        .single();
+
+      if (entity) setOwnPosition({ x: entity.position_x, y: entity.position_y });
 
       await loadPlayers();
       setLoading(false);
-      console.log('✅ Data loaded, calling initPixi');
-      initPixi();
-      setupRealtime();
+      console.log('✅ Data loaded - loading=false');
     } catch (err: any) {
-      console.error('❌ INIT CRASHED', err);
+      console.error('❌ DATA INIT FAILED', err);
       setError(err.message);
       setLoading(false);
     }
   };
 
-  const loadPlayers = async () => {
-    console.log('🔍 loadPlayers called');
-    // (kept simple for now)
-    setPlayers([]);
-  };
+  // 2. Initialize Pixi ONLY when the container ref exists
+  useEffect(() => {
+    if (loading || !pixiContainerRef.current) return;
+    console.log('🎮 Pixi init triggered - container ref ready');
+    initPixi();
+  }, [loading]);
 
   const initPixi = () => {
-    console.log('🎮 initPixi() CALLED');
+    if (appRef.current) return;
 
-    if (!pixiContainerRef.current) {
-      console.error('❌ pixiContainerRef.current is null');
-      return;
-    }
+    const app = new PIXI.Application({
+      backgroundColor: 0x00ff00,   // BRIGHT GREEN - we must see this
+      resizeTo: pixiContainerRef.current!,
+      antialias: true,
+    });
 
-    if (appRef.current) {
-      console.log('⚠️ Pixi already initialized');
-      return;
-    }
+    appRef.current = app;
+    pixiContainerRef.current!.appendChild(app.canvas);
+    console.log('✅ app.canvas appended - Pixi is alive');
 
-    try {
-      const app = new PIXI.Application({
-        backgroundColor: 0x003300,   // solid green so we KNOW it's working
-        resizeTo: pixiContainerRef.current,
-        antialias: true,
-      });
-
-      appRef.current = app;
-
-      // THIS IS THE IMPORTANT LINE
-      pixiContainerRef.current.appendChild(app.canvas);
-      console.log('✅ app.canvas appended to container');
-
-      // Simple background for testing
-      const bg = PIXI.Sprite.from('/islemap.png');
-      bg.anchor.set(0.5);
-      bg.position.set(1250, 1000);
-      app.stage.addChild(bg);
-      console.log('✅ Background sprite added');
-
-      console.log('🎉 PIXI SHOULD BE VISIBLE NOW');
-    } catch (e) {
-      console.error('❌ initPixi CRASHED', e);
-    }
+    // Background (added after canvas is confirmed)
+    const bg = PIXI.Sprite.from('/islemap.png');
+    bg.anchor.set(0.5);
+    bg.position.set(1250, 1000);
+    app.stage.addChild(bg);
+    console.log('✅ Background loaded');
   };
 
-  const setupRealtime = () => {
-    console.log('📡 Realtime setup (placeholder)');
+  const loadPlayers = async () => {
+    console.log('🔍 loadPlayers called');
+    setPlayers([]);
   };
 
   const cleanup = () => {
     console.log('🧹 Cleanup');
+    if (appRef.current) appRef.current.destroy(true);
   };
 
   const handleReturnToHub = async () => {
@@ -117,7 +126,9 @@ export default function MapPage() {
     router.push('/hub');
   };
 
-  if (loading) return <div style={{ background: '#001100', color: '#0ff', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>LOADING...</div>;
+  if (loading) {
+    return <div style={{ background: '#001100', color: '#0ff', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>LOADING FOREST MAP...</div>;
+  }
 
   return (
     <>
@@ -132,7 +143,6 @@ export default function MapPage() {
         </div>
 
         <div style={{ display: 'flex', flex: 1, gap: 12, padding: 12 }}>
-          {/* LEFT PANEL */}
           <div className="panel" style={{ width: 280, padding: 16 }}>
             <div style={{ borderBottom: '2px solid #0f0', paddingBottom: 8, textAlign: 'center' }}>SELECTED DINO</div>
             {selectedDino && (
@@ -144,12 +154,10 @@ export default function MapPage() {
             )}
           </div>
 
-          {/* MAP AREA */}
           <div className="panel" style={{ flex: 1, position: 'relative', minHeight: 500 }}>
             <div ref={pixiContainerRef} className="pixi-container" />
           </div>
 
-          {/* RIGHT PANEL */}
           <div className="panel" style={{ width: 280, padding: 16 }}>
             <div style={{ borderBottom: '2px solid #0f0', paddingBottom: 8 }}>OTHER DINOS (0)</div>
             <div style={{ opacity: 0.5, textAlign: 'center', padding: 40 }}>NO OTHER PLAYERS YET</div>
