@@ -47,6 +47,7 @@ export default function MapPage() {
   const appRef = useRef<PIXI.Application | null>(null);
   const worldRef = useRef<PIXI.Container | null>(null);
   const spritesRef = useRef<Map<string, PIXI.Sprite>>(new Map());
+  const isPixiReadyRef = useRef(false); // ← prevents race conditions
 
   const round = (val: number | null | undefined) => Math.round(Number(val) || 0);
 
@@ -143,19 +144,69 @@ export default function MapPage() {
           table: 'evrima_instance_entities',
           filter: `instance_key=eq.${instanceId}`,
         },
-        () => {
-          loadNearbyDinos(); // refresh on any position change
-        }
+        () => loadNearbyDinos()
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => supabase.removeChannel(channel);
   }, [instanceId, loadNearbyDinos]);
 
   // ──────────────────────────────────────────────────────────────
-  // PIXI MAP ENGINE (modular system)
+  // SPRITE MANAGEMENT (pooled + data-driven)
+  // ──────────────────────────────────────────────────────────────
+  const updateDinoSprites = useCallback(() => {
+    if (!isPixiReadyRef.current || !appRef.current || !worldRef.current) {
+      return; // ← safety guard against race condition
+    }
+
+    const allDinos: DinoEntity[] = [
+      ...(ownPosition && selectedDino && currentDinoId
+        ? [{
+            dino_id: currentDinoId,
+            position_x: ownPosition.x,
+            position_y: ownPosition.y,
+            stage: selectedDino.stage,
+            species_key: selectedDino.species_key,
+            dino_name: selectedDino.dino_name,
+            growth: selectedDino.growth,
+          }]
+        : []),
+      ...nearbyDinos,
+    ];
+
+    // Remove sprites that no longer exist
+    spritesRef.current.forEach((sprite, id) => {
+      if (!allDinos.some((d) => d.dino_id === id)) {
+        worldRef.current!.removeChild(sprite);
+        sprite.destroy({ children: true });
+        spritesRef.current.delete(id);
+      }
+    });
+
+    // Create / update sprites
+    allDinos.forEach((dino) => {
+      const id = dino.dino_id;
+      let sprite = spritesRef.current.get(id);
+
+      if (!sprite) {
+        const stage = (dino.stage || 'baby').toLowerCase();
+        const species = (dino.species_key || 'raptor').toLowerCase();
+        const path = `/sprites/templates/${species}_${stage}_sprite.png`;
+
+        sprite = PIXI.Sprite.from(path);
+        sprite.anchor.set(0.5);
+        sprite.scale.set(id === currentDinoId ? 2.8 : 2.2);
+        worldRef.current!.addChild(sprite);
+        spritesRef.current.set(id, sprite);
+      }
+
+      sprite.x = dino.position_x;
+      sprite.y = dino.position_y;
+    });
+  }, [nearbyDinos, ownPosition, selectedDino, currentDinoId]);
+
+  // ──────────────────────────────────────────────────────────────
+  // PIXI MAP ENGINE (modular system) — FIXED
   // ──────────────────────────────────────────────────────────────
   const initPixi = useCallback(async () => {
     if (appRef.current || !pixiContainerRef.current) return;
@@ -177,22 +228,24 @@ export default function MapPage() {
     appRef.current = app;
     container.appendChild(app.canvas);
 
-    // World container (all map layers go here)
+    // Enable pointer events on BOTH stage and world (Pixi v8 requirement)
+    app.stage.eventMode = 'static';
     const world = new PIXI.Container();
+    world.eventMode = 'static';
     worldRef.current = world;
     app.stage.addChild(world);
 
-    // Background
+    // Background (guaranteed visible)
     try {
       const texture = await PIXI.Assets.load('/islemap.png');
       const bg = new PIXI.Sprite(texture);
       bg.anchor.set(0.5);
-      bg.position.set(1250, 1000); // map center from your screenshot
+      bg.position.set(1250, 1000); // exact center from your map screenshot
       world.addChild(bg);
 
-      // Initial camera fit
-      const scaleX = app.screen.width / (bg.width * 1.2);
-      const scaleY = app.screen.height / (bg.height * 1.2);
+      // Initial camera fit (ensures map is visible immediately)
+      const scaleX = app.screen.width / (bg.width * 1.15);
+      const scaleY = app.screen.height / (bg.height * 1.15);
       const initialScale = Math.min(scaleX, scaleY, 1);
 
       world.scale.set(initialScale);
@@ -200,16 +253,17 @@ export default function MapPage() {
         app.screen.width / 2 - 1250 * initialScale,
         app.screen.height / 2 - 1000 * initialScale
       );
+
+      console.log('✅ MAP BACKGROUND LOADED & CENTERED | scale:', initialScale);
     } catch (err) {
       console.error('❌ Failed to load /islemap.png', err);
     }
 
-    // Simple drag + wheel zoom (production-ready camera)
+    // === CAMERA CONTROLS (drag + wheel zoom) ===
     let isDragging = false;
     let lastX = 0;
     let lastY = 0;
 
-    world.eventMode = 'static';
     world.on('pointerdown', (e: PIXI.FederatedPointerEvent) => {
       isDragging = true;
       lastX = e.global.x;
@@ -229,11 +283,12 @@ export default function MapPage() {
     app.stage.on('pointerup', () => { isDragging = false; });
     app.stage.on('pointerupoutside', () => { isDragging = false; });
 
-    // Wheel zoom
-    app.canvas.addEventListener('wheel', (e) => {
+    // Wheel zoom centered on mouse
+    const onWheel = (e: WheelEvent) => {
       if (!worldRef.current || !appRef.current) return;
       e.preventDefault();
-      const scaleFactor = e.deltaY < 0 ? 1.1 : 0.9;
+
+      const scaleFactor = e.deltaY < 0 ? 1.12 : 0.88;
       const mouseX = e.offsetX;
       const mouseY = e.offsetY;
 
@@ -244,54 +299,25 @@ export default function MapPage() {
 
       worldRef.current.x = mouseX - worldPos.x * worldRef.current.scale.x;
       worldRef.current.y = mouseY - worldPos.y * worldRef.current.scale.y;
-    });
+    };
+    app.canvas.addEventListener('wheel', onWheel, { passive: false });
 
-    // Render sprites
+    // Mark as ready BEFORE first sprite update
+    isPixiReadyRef.current = true;
+
+    // Initial sprite render (now safe)
     updateDinoSprites();
-  }, []);
 
-  // ──────────────────────────────────────────────────────────────
-  // SPRITE MANAGEMENT (pooled + data-driven)
-  // ──────────────────────────────────────────────────────────────
-  const updateDinoSprites = useCallback(() => {
-    if (!appRef.current || !worldRef.current) return;
+    // Auto-resize
+    const resizeHandler = () => app.resize();
+    window.addEventListener('resize', resizeHandler);
 
-    const allDinos = [
-      ...(ownPosition && selectedDino && currentDinoId
-        ? [{ ...selectedDino, dino_id: currentDinoId, position_x: ownPosition.x, position_y: ownPosition.y }]
-        : []),
-      ...nearbyDinos,
-    ];
-
-    // Remove old sprites
-    spritesRef.current.forEach((sprite, id) => {
-      if (!allDinos.some((d) => d.dino_id === id)) {
-        worldRef.current!.removeChild(sprite);
-        sprite.destroy();
-        spritesRef.current.delete(id);
-      }
-    });
-
-    allDinos.forEach((dino) => {
-      const id = dino.dino_id;
-      let sprite = spritesRef.current.get(id);
-
-      if (!sprite) {
-        const stage = (dino.stage || 'baby').toLowerCase();
-        const species = (dino.species_key || 'raptor').toLowerCase();
-        const path = `/sprites/templates/${species}_${stage}_sprite.png`;
-
-        sprite = PIXI.Sprite.from(path);
-        sprite.anchor.set(0.5);
-        sprite.scale.set(id === currentDinoId ? 2.8 : 2.2); // own dino slightly larger
-        worldRef.current!.addChild(sprite);
-        spritesRef.current.set(id, sprite);
-      }
-
-      sprite.x = dino.position_x;
-      sprite.y = dino.position_y;
-    });
-  }, [nearbyDinos, ownPosition, selectedDino, currentDinoId]);
+    // Cleanup function for this init
+    return () => {
+      window.removeEventListener('resize', resizeHandler);
+      app.canvas.removeEventListener('wheel', onWheel);
+    };
+  }, [updateDinoSprites]);
 
   // ──────────────────────────────────────────────────────────────
   // LIFECYCLE
@@ -302,22 +328,27 @@ export default function MapPage() {
 
   useEffect(() => {
     if (!loading && pixiContainerRef.current) {
-      initPixi();
+      const cleanupPixi = initPixi();
+      return () => {
+        cleanupPixi?.then?.((fn) => fn?.());
+      };
     }
   }, [loading, initPixi]);
 
-  // Update sprites when data changes
+  // Update sprites whenever data changes (now 100% safe)
   useEffect(() => {
     updateDinoSprites();
   }, [updateDinoSprites]);
 
-  // Cleanup
+  // Full cleanup
   const cleanup = useCallback(() => {
+    isPixiReadyRef.current = false;
     if (appRef.current) {
       appRef.current.destroy(true, { children: true, texture: true, baseTexture: true });
       appRef.current = null;
     }
     spritesRef.current.clear();
+    worldRef.current = null;
   }, []);
 
   useEffect(() => {
