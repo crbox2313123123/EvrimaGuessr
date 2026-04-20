@@ -17,8 +17,6 @@ export default function MapPage() {
   const [ownPosition, setOwnPosition] = useState<{ x: number; y: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pixiReady, setPixiReady] = useState(false);
-  const [dataReady, setDataReady] = useState(false);
 
   const pixiContainerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
@@ -26,12 +24,11 @@ export default function MapPage() {
   const spritesRef = useRef<Map<string, PIXI.Sprite>>(new Map());
   const channelRef = useRef<any>(null);
 
-  // Refs for Pixi (bypass React timing issues)
-  const selectedDinoRef = useRef<any>(null);
-  const ownPositionRef = useRef<{ x: number; y: number } | null>(null);
-
   const round = (val: any) => Math.round(Number(val) || 0);
 
+  // ─────────────────────────────────────────────────────────────
+  // INITIAL AUTH + DATA LOAD
+  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     init();
     return cleanup;
@@ -39,8 +36,12 @@ export default function MapPage() {
 
   const init = async () => {
     try {
+      setError(null);
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return router.push('/hub');
+      if (!session) {
+        router.push('/hub');
+        return;
+      }
 
       const userId = session.user.id;
       setCurrentUserId(userId);
@@ -51,11 +52,14 @@ export default function MapPage() {
         .eq('user_id', userId)
         .single();
 
-      if (!state || state.current_map_key !== 'forest') return router.push('/hub');
+      if (!state?.current_map_key || state.current_map_key !== 'forest') {
+        router.push('/hub');
+        return;
+      }
+
+      setInstanceId(state.current_map_key); // for display
 
       if (state.selected_dino_id) {
-        setCurrentDinoId(state.selected_dino_id);
-
         const { data: dino } = await supabase
           .from('evrima_player_dinos')
           .select('*')
@@ -64,264 +68,290 @@ export default function MapPage() {
 
         if (dino) {
           setSelectedDino(dino);
-          selectedDinoRef.current = dino;
+          setCurrentDinoId(dino.id);
         }
       }
 
-      await loadInstance(userId);
+      // Load own position from entity table
+      const { data: entity } = await supabase
+        .from('evrima_instance_entities')
+        .select('position_x, position_y')
+        .eq('dino_id', state.selected_dino_id)
+        .single();
+
+      if (entity) {
+        setOwnPosition({ x: entity.position_x, y: entity.position_y });
+      }
+
+      await loadPlayers();
+      setLoading(false);
+      initPixi();
+      setupRealtime();
     } catch (err: any) {
-      setError(err.message || 'Unknown error');
-    } finally {
+      console.error('❌ MAP INIT ERROR', err);
+      setError(err.message);
       setLoading(false);
     }
   };
 
-  const cleanup = () => {
-    if (channelRef.current) supabase.removeChannel(channelRef.current);
-    if (appRef.current) appRef.current.destroy(true, { children: true });
-  };
-
-  const loadInstance = async (userId: string) => {
-    const { data } = await supabase
-      .from('evrima_player_presence')
-      .select('instance_id')
-      .eq('user_id', userId)
-      .single();
-
-    if (data?.instance_id) setInstanceId(data.instance_id);
-  };
-
-  useEffect(() => {
-    if (!instanceId || !currentUserId || !currentDinoId) return;
-    loadPlayers();
-    setupRealtime();
-  }, [instanceId, currentUserId, currentDinoId]);
-
+  // ─────────────────────────────────────────────────────────────
+  // LOAD NEARBY DINOS + OWN POSITION
+  // ─────────────────────────────────────────────────────────────
   const loadPlayers = async () => {
-    console.log("🔍 loadPlayers called with:", { instanceId, currentUserId, currentDinoId });
+    if (!instanceId || !currentUserId || !currentDinoId) return;
+
+    console.log('🔍 loadPlayers called with:', { instanceId, currentUserId, currentDinoId });
 
     const { data, error } = await supabase.rpc('get_nearby_dinos', {
       p_instance_id: instanceId,
       p_observer_user_id: currentUserId,
       p_observer_dino_id: currentDinoId,
-      p_reveal_radius: 200
+      p_reveal_radius: 200,
     });
 
-    console.log("players:", data);
-    console.log("rpc error:", error);
-
-    setPlayers(data || []);
-
-    const { data: entity } = await supabase
-      .from('evrima_instance_entities')
-      .select('position_x, position_y')
-      .eq('dino_id', currentDinoId)
-      .single();
-
-    if (entity) {
-      setOwnPosition({ x: entity.position_x, y: entity.position_y });
-      ownPositionRef.current = { x: entity.position_x, y: entity.position_y };
-      console.log(`📍 Own real position loaded: (${entity.position_x}, ${entity.position_y})`);
-    } else {
-      console.log("❌ No entity row found for own dino!");
+    if (error) {
+      console.error('❌ RPC error:', error);
+      return;
     }
 
-    // Mark data as ready
-    setDataReady(true);
-
+    console.log('✅ RPC result:', data);
+    setPlayers(data || []);
     updateDinoSprites(data || []);
   };
 
+  // ─────────────────────────────────────────────────────────────
+  // PIXI INITIALIZATION (camera + background last)
+  // ─────────────────────────────────────────────────────────────
+  const initPixi = () => {
+    if (!pixiContainerRef.current || appRef.current) return;
+
+    const app = new PIXI.Application({
+      backgroundColor: 0x112211,
+      resizeTo: pixiContainerRef.current,
+      antialias: true,
+    });
+
+    appRef.current = app;
+    pixiContainerRef.current.appendChild(app.view as HTMLCanvasElement);
+
+    const viewport = new PIXI.Container();
+    viewportRef.current = viewport;
+    app.stage.addChild(viewport);
+
+    // Background added LAST so sprites are always on top
+    const bgTexture = PIXI.Texture.from('/islemap.png');
+    const background = new PIXI.Sprite(bgTexture);
+    background.anchor.set(0.5);
+    background.position.set(1250, 1000);
+    viewport.addChild(background);
+
+    // Camera controls
+    let isDragging = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    const canvas = app.view as HTMLCanvasElement;
+    canvas.style.pointerEvents = 'auto';
+
+    canvas.addEventListener('pointerdown', (e) => {
+      isDragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!isDragging || !viewportRef.current) return;
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      viewportRef.current.x += dx;
+      viewportRef.current.y += dy;
+      lastX = e.clientX;
+      lastY = e.clientY;
+    });
+
+    canvas.addEventListener('pointerup', () => { isDragging = false; });
+    canvas.addEventListener('pointerleave', () => { isDragging = false; });
+
+    // Wheel zoom
+    canvas.addEventListener('wheel', (e) => {
+      if (!viewportRef.current) return;
+      const scaleFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      const mouseX = e.offsetX;
+      const mouseY = e.offsetY;
+
+      const worldPosX = (mouseX - viewportRef.current.x) / viewportRef.current.scale.x;
+      const worldPosY = (mouseY - viewportRef.current.y) / viewportRef.current.scale.y;
+
+      viewportRef.current.scale.x *= scaleFactor;
+      viewportRef.current.scale.y *= scaleFactor;
+
+      viewportRef.current.x = mouseX - worldPosX * viewportRef.current.scale.x;
+      viewportRef.current.y = mouseY - worldPosY * viewportRef.current.scale.y;
+    });
+
+    console.log('✅ PIXI + MAP LOADED');
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // UPDATE SPRITES (unconditional own dino spawn)
+  // ─────────────────────────────────────────────────────────────
+  const updateDinoSprites = (nearbyData: any[]) => {
+    if (!viewportRef.current) return;
+
+    // OWN DINO - unconditional
+    if (selectedDino && currentDinoId && ownPosition) {
+      let sprite = spritesRef.current.get(currentDinoId);
+      if (!sprite) {
+        const stage = selectedDino.stage?.toLowerCase() || 'baby';
+        const species = selectedDino.species_key?.toLowerCase() || 'raptor';
+        const path = `/sprites/templates/${species}_${stage}_sprite.png`;
+
+        sprite = PIXI.Sprite.from(path);
+        sprite.anchor.set(0.5);
+        sprite.scale.set(2.5);
+        viewportRef.current.addChild(sprite); // before background
+        spritesRef.current.set(currentDinoId, sprite);
+        console.log(`🦕 Own dino sprite created: ${path}`);
+      }
+      sprite.x = ownPosition.x;
+      sprite.y = ownPosition.y;
+    }
+
+    // Nearby dinos
+    nearbyData.forEach((p) => {
+      const dinoId = p.dino_id;
+      if (!dinoId || dinoId === currentDinoId) return;
+
+      let sprite = spritesRef.current.get(dinoId);
+      if (!sprite) {
+        const stage = p.stage?.toLowerCase() || 'baby';
+        const species = p.species_key?.toLowerCase() || 'raptor';
+        const path = `/sprites/templates/${species}_${stage}_sprite.png`;
+
+        sprite = PIXI.Sprite.from(path);
+        sprite.anchor.set(0.5);
+        sprite.scale.set(2);
+        viewportRef.current!.addChild(sprite);
+        spritesRef.current.set(dinoId, sprite);
+      }
+      sprite.x = p.position_x;
+      sprite.y = p.position_y;
+    });
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // REALTIME SUBSCRIPTION
+  // ─────────────────────────────────────────────────────────────
   const setupRealtime = () => {
     if (channelRef.current) return;
 
-    const channel = supabase
-      .channel(`map-${instanceId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'evrima_player_presence',
-          filter: `instance_id=eq.${instanceId}`
-        },
-        loadPlayers
-      )
+    const channel = supabase.channel(`map-presence:${instanceId}`);
+    channel
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'evrima_player_presence' }, () => {
+        loadPlayers();
+      })
       .subscribe();
 
     channelRef.current = channel;
   };
 
-  // ROBUST OWN DINO CREATION - runs when BOTH Pixi and data are ready
-  useEffect(() => {
-    if (!pixiReady || !dataReady || !viewportRef.current || !selectedDinoRef.current || !ownPositionRef.current) {
-      console.log("⏳ Own dino effect waiting...", {
-        pixiReady,
-        dataReady,
-        viewport: !!viewportRef.current,
-        selectedDino: !!selectedDinoRef.current,
-        ownPosition: !!ownPositionRef.current
-      });
-      return;
+  const cleanup = () => {
+    if (channelRef.current) {
+      channelRef.current.unsubscribe();
+      channelRef.current = null;
     }
-
-    console.log("🔄 Reactive own dino effect triggered - creating/updating sprite");
-
-    const viewport = viewportRef.current;
-
-    let sprite = spritesRef.current.get(currentDinoId);
-    if (!sprite) {
-      const stage = (selectedDinoRef.current.stage || 'baby').toLowerCase();
-      const species = (selectedDinoRef.current.species_key || 'raptor').toLowerCase();
-      const path = `/sprites/templates/${species}_${stage}_sprite.png`;
-      console.log(`🦕 Creating own dino sprite: ${path}`);
-
-      sprite = PIXI.Sprite.from(path);
-      sprite.anchor.set(0.5);
-      sprite.scale.set(0.9);
-      viewport.addChild(sprite);
-      spritesRef.current.set(currentDinoId, sprite);
-      console.log("✅ Own sprite added to viewport");
+    if (appRef.current) {
+      appRef.current.destroy(true);
+      appRef.current = null;
     }
-
-    sprite.x = ownPositionRef.current.x;
-    sprite.y = ownPositionRef.current.y;
-    console.log(`📍 Own dino position updated to (${ownPositionRef.current.x}, ${ownPositionRef.current.y})`);
-  }, [pixiReady, dataReady, currentDinoId]);
-
-  useEffect(() => {
-    if (!pixiContainerRef.current || !instanceId) return;
-    if (appRef.current) return;
-    initPixi();
-  }, [instanceId]);
-
-  const initPixi = async () => {
-    const container = pixiContainerRef.current!;
-    const app = new PIXI.Application();
-    await app.init({
-      resizeTo: container,
-      backgroundColor: 0x0a1f0a,
-      antialias: true,
-    });
-
-    container.appendChild(app.canvas);
-    appRef.current = app;
-
-    const viewport = new PIXI.Container();
-    app.stage.addChild(viewport);
-    viewportRef.current = viewport;
-
-    // Preload
-    const spritePaths = [
-      '/sprites/templates/raptor_baby_sprite.png',
-      '/sprites/templates/raptor_juvenile_sprite.png',
-      '/sprites/templates/raptor_sub_adult_sprite.png',
-      '/sprites/templates/raptor_adult_sprite.png',
-      '/sprites/templates/raptor_prime_adult_sprite.png'
-    ];
-    await PIXI.Assets.load(spritePaths).catch(() => {});
-
-    // Background last
-    try {
-      const texture = await PIXI.Assets.load('/islemap.png');
-      const bg = new PIXI.Sprite(texture);
-      bg.anchor.set(0.5);
-      bg.x = 1250;
-      bg.y = 1000;
-      viewport.addChild(bg);
-      console.log('✅ MAP BACKGROUND LOADED at center (1250,1000)');
-    } catch (err) {
-      console.error('❌ MAP BACKGROUND FAILED', err);
-    }
-
-    console.log('✅ PIXI + MAP LOADED');
-    setPixiReady(true);
   };
 
-  const updateDinoSprites = (nearbyData: any[]) => {
-    if (!viewportRef.current) return;
-    const viewport = viewportRef.current;
-
-    console.log(`🔄 Updating sprites - nearby: ${nearbyData.length}`);
-
-    nearbyData.forEach((item) => {
-      const dinoId = item.dino_id.toString();
-      let sprite = spritesRef.current.get(dinoId);
-      if (!sprite) {
-        const stage = (item.stage || 'baby').toLowerCase();
-        const species = (item.species_key || 'raptor').toLowerCase();
-        const path = `/sprites/templates/${species}_${stage}_sprite.png`;
-        console.log(`🦕 Creating nearby sprite: ${path}`);
-        sprite = PIXI.Sprite.from(path);
-        sprite.anchor.set(0.5);
-        sprite.scale.set(0.8);
-        viewport.addChild(sprite);
-        spritesRef.current.set(dinoId, sprite);
-      }
-      sprite.x = item.position_x || 1250;
-      sprite.y = item.position_y || 1000;
-    });
-  };
-
+  // ─────────────────────────────────────────────────────────────
+  // RETURN TO HUB
+  // ─────────────────────────────────────────────────────────────
   const handleReturnToHub = async () => {
     await leaveMap();
     router.push('/hub');
   };
 
-  if (loading) return <div className="loading">LOADING FOREST MAP...</div>;
-  if (error) return <div className="loading" style={{ color: '#f44' }}>ERROR: {error}</div>;
+  if (loading) {
+    return (
+      <div className="loading" style={{ background: '#001100', color: '#0ff', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Press Start 2P' }}>
+        LOADING FOREST MAP...
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div style={{ color: '#f44', padding: 40 }}>ERROR: {error}</div>;
+  }
 
   return (
     <>
       <style jsx global>{`
-        .root { min-height: 100vh; display: grid; grid-template-rows: 80px 1fr 80px; background: #0a1f0a; color: #0f0; }
-        .main { display: grid; grid-template-columns: 320px 1fr 320px; gap: 16px; padding: 16px; }
-        .panel { border: 3px solid #0f0; background: #112211; }
-        .map-container { position: relative; overflow: hidden; min-height: 500px; }
-        .pixi-container { width: 100%; height: 100%; }
-        @media (max-width: 900px) { .main { grid-template-columns: 1fr; } }
+        .panel { border: 4px solid #0f0; background: #001100; color: #0ff; font-family: 'Press Start 2P', system-ui; }
+        .pixi-container { width: 100%; height: 100%; position: relative; }
       `}</style>
 
-      <div className="root">
-        <header className="panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 20px' }}>
-          <div>🌲 FOREST MAP</div>
-          <div>INSTANCE: {instanceId?.slice(0, 8)}</div>
-        </header>
+      <div className="map-page" style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#001100' }}>
+        {/* HEADER */}
+        <div className="panel" style={{ padding: 12, textAlign: 'center' }}>
+          🌲 FOREST MAP • INSTANCE {instanceId?.slice(0, 8)}...
+        </div>
 
-        <div className="main">
-          <div className="panel">
-            <div style={{ padding: 12, borderBottom: '2px solid #0f0' }}>SELECTED DINO</div>
-            <div style={{ padding: 16, textAlign: 'center' }}>
-              {selectedDino && (
-                <>
-                  <div style={{ fontSize: '2rem' }}>🦕</div>
-                  <div>{selectedDino.dino_name}</div>
-                  <div>{selectedDino.stage} • {round(selectedDino.growth)}%</div>
-                </>
-              )}
+        <div style={{ display: 'flex', flex: 1, gap: 12, padding: 12, overflow: 'hidden' }}>
+          {/* LEFT - SELECTED DINO */}
+          <div className="panel" style={{ width: 280, padding: 16 }}>
+            <div style={{ borderBottom: '2px solid #0f0', paddingBottom: 8, marginBottom: 16, textAlign: 'center' }}>
+              SELECTED DINO
             </div>
+            {selectedDino && (
+              <>
+                <div style={{ fontSize: '2.2rem', textAlign: 'center', marginBottom: 8 }}>🦕</div>
+                <div style={{ fontSize: '1.4rem', textAlign: 'center' }}>{selectedDino.dino_name}</div>
+                <div style={{ textAlign: 'center', marginTop: 8 }}>
+                  {selectedDino.stage} • {round(selectedDino.growth)}%
+                </div>
+              </>
+            )}
           </div>
 
-          <div className="panel map-container">
+          {/* CENTER - MAP */}
+          <div className="panel map-container" style={{ flex: 1, position: 'relative', minHeight: 500 }}>
             <div ref={pixiContainerRef} className="pixi-container" />
-            <div style={{ position: 'absolute', top: 10, left: 10, color: '#0ff', fontSize: 12 }}>
-              {players.length + 1} DINOS
+            <div style={{ position: 'absolute', top: 12, left: 12, color: '#0ff', fontSize: '0.9rem', zIndex: 10 }}>
+              {players.length + 1} DINOS ACTIVE
             </div>
           </div>
 
-          <div className="panel">
-            <div style={{ padding: 12, borderBottom: '2px solid #0f0' }}>OTHER DINOS ({players.length})</div>
-            <div style={{ padding: 12, maxHeight: 500, overflowY: 'auto' }}>
-              {players.length ? players.map((p, i) => {
-                const d = p.evrima_player_dinos || p;
-                return <div key={i} style={{ padding: 6 }}>{d ? `${d.dino_name} • ${d.stage} • ${round(d.growth)}%` : 'Unknown'}</div>;
-              }) : <div style={{ opacity: 0.5 }}>No players nearby</div>}
+          {/* RIGHT - OTHER DINOS */}
+          <div className="panel" style={{ width: 280, padding: 16, overflowY: 'auto' }}>
+            <div style={{ borderBottom: '2px solid #0f0', paddingBottom: 8, marginBottom: 16 }}>
+              OTHER DINOS ({players.length})
             </div>
+            {players.length ? (
+              players.map((p, i) => {
+                const d = p.evrima_player_dinos || p;
+                return (
+                  <div key={i} style={{ padding: '10px 0', borderBottom: '1px dotted #0f0', fontSize: '0.85rem' }}>
+                    {d ? `${d.dino_name} • ${d.stage} • ${round(d.growth)}%` : 'Unknown'}
+                  </div>
+                );
+              })
+            ) : (
+              <div style={{ opacity: 0.5, textAlign: 'center', padding: 40 }}>NO OTHER PLAYERS YET</div>
+            )}
           </div>
         </div>
 
-        <div className="panel" style={{ textAlign: 'center', padding: 10 }}>
-          <button onClick={handleReturnToHub}>← RETURN TO HUB</button>
+        {/* FOOTER */}
+        <div className="panel" style={{ padding: 16, textAlign: 'center' }}>
+          <button
+            onClick={handleReturnToHub}
+            style={{ padding: '14px 40px', background: '#112211', border: '3px solid #0ff', color: '#0ff', fontFamily: 'Press Start 2P', cursor: 'pointer' }}
+          >
+            ← RETURN TO HUB
+          </button>
         </div>
       </div>
     </>
