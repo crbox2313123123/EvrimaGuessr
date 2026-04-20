@@ -223,9 +223,15 @@ export default function MapPage() {
     appRef.current = app;
     container.appendChild(app.canvas);
 
-    app.stage.eventMode = 'static';
-    const world = new PIXI.Container();
-    world.eventMode = 'static';
+app.stage.eventMode = 'static';
+
+const world = new PIXI.Container();
+world.eventMode = 'static';
+
+// REQUIRED: allows pointer events to propagate correctly in v8 scene graph
+world.cursor = 'grab';
+
+
     worldRef.current = world;
     app.stage.addChild(world);
 
@@ -234,28 +240,52 @@ export default function MapPage() {
     // This completely eliminates the "Asset id not found in Cache" warning
     // ──────────────────────────────────────────────────────────────
     try {
-      const bg = PIXI.Sprite.from('/islemap.png');   // ← must be public/islemap.png
+const texture = await PIXI.Assets.load('/islemap.png');
+const bg = new PIXI.Sprite(texture);
       bg.anchor.set(0.5);
       bg.position.set(1250, 1000);
 
       // Force load & cache
-      bg.on('load', () => {
-        console.log('%c✅ MAP IMAGE CACHED SUCCESSFULLY — /islemap.png', 'color:#0f0; font-weight:bold;');
-      });
+
 
       bg.on('error', (err) => {
         console.error('❌ MAP IMAGE FAILED TO LOAD — check public/islemap.png exists!', err);
         // Fallback background
-        const fallback = new PIXI.Graphics();
-        fallback.rect(0, 0, 2500, 2000).fill(0x002200);
-        fallback.text = new PIXI.Text('MAP LOADING...\n(put islemap.png in /public)', {
-          fontFamily: 'Press Start 2P',
-          fontSize: 28,
-          fill: 0xff0000,
-          align: 'center',
-        });
-        fallback.text.position.set(800, 800);
-        world.addChild(fallback, bg);
+bg.on('error', (err) => {
+  console.error('❌ MAP IMAGE FAILED TO LOAD', err);
+
+  const fallback = new PIXI.Container();
+
+  const text = new PIXI.Text({
+    text: 'MAP LOADING...\n(put islemap.png in /public)',
+    style: {
+      fontFamily: 'Press Start 2P',
+      fontSize: 28,
+      fill: 0xff0000,
+      align: 'center',
+    },
+  });
+
+  text.position.set(800, 800);
+  fallback.addChild(text);
+
+  world.addChild(fallback);
+});
+
+const text = new PIXI.Text({
+  text: 'MAP LOADING...\n(put islemap.png in /public)',
+  style: {
+    fontFamily: 'Press Start 2P',
+    fontSize: 28,
+    fill: 0xff0000,
+    align: 'center',
+  },
+});
+
+text.position.set(800, 800);
+fallback.addChild(text);
+
+world.addChild(fallback);
       });
 
       world.addChild(bg);
@@ -316,7 +346,6 @@ export default function MapPage() {
 
     // Mark ready & render initial sprites
     isPixiReadyRef.current = true;
-    updateDinoSprites();
 
     const resizeHandler = () => app.resize();
     window.addEventListener('resize', resizeHandler);
@@ -343,10 +372,6 @@ export default function MapPage() {
     }
   }, [loading, initPixi]);
 
-  useEffect(() => {
-    updateDinoSprites();
-  }, [updateDinoSprites]);
-
   const cleanup = useCallback(() => {
     isPixiReadyRef.current = false;
     if (appRef.current) {
@@ -365,6 +390,13 @@ export default function MapPage() {
     await leaveMap();
     router.push('/hub');
   };
+
+
+  useEffect(() => {
+  if (!loading && isPixiReadyRef.current) {
+    updateDinoSprites();
+  }
+}, [nearbyDinos, ownPosition, selectedDino, currentDinoId, loading]);
 
   // ──────────────────────────────────────────────────────────────
   // RENDER
