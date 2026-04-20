@@ -18,12 +18,17 @@ export default function MapPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pixiReady, setPixiReady] = useState(false);
+  const [dataReady, setDataReady] = useState(false);
 
   const pixiContainerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
   const viewportRef = useRef<PIXI.Container | null>(null);
   const spritesRef = useRef<Map<string, PIXI.Sprite>>(new Map());
   const channelRef = useRef<any>(null);
+
+  // Refs for Pixi (bypass React timing issues)
+  const selectedDinoRef = useRef<any>(null);
+  const ownPositionRef = useRef<{ x: number; y: number } | null>(null);
 
   const round = (val: any) => Math.round(Number(val) || 0);
 
@@ -57,7 +62,10 @@ export default function MapPage() {
           .eq('id', state.selected_dino_id)
           .single();
 
-        if (dino) setSelectedDino(dino);
+        if (dino) {
+          setSelectedDino(dino);
+          selectedDinoRef.current = dino;
+        }
       }
 
       await loadInstance(userId);
@@ -112,10 +120,14 @@ export default function MapPage() {
 
     if (entity) {
       setOwnPosition({ x: entity.position_x, y: entity.position_y });
+      ownPositionRef.current = { x: entity.position_x, y: entity.position_y };
       console.log(`📍 Own real position loaded: (${entity.position_x}, ${entity.position_y})`);
     } else {
       console.log("❌ No entity row found for own dino!");
     }
+
+    // Mark data as ready
+    setDataReady(true);
 
     updateDinoSprites(data || []);
   };
@@ -140,10 +152,16 @@ export default function MapPage() {
     channelRef.current = channel;
   };
 
-  // ROBUST OWN DINO CREATION - runs when viewport AND data are ready
+  // ROBUST OWN DINO CREATION - runs when BOTH Pixi and data are ready
   useEffect(() => {
-    if (!pixiReady || !viewportRef.current || !selectedDino || !currentDinoId || !ownPosition) {
-      console.log("⏳ Own dino effect waiting - pixiReady:", pixiReady, "selectedDino:", !!selectedDino, "ownPosition:", !!ownPosition);
+    if (!pixiReady || !dataReady || !viewportRef.current || !selectedDinoRef.current || !ownPositionRef.current) {
+      console.log("⏳ Own dino effect waiting...", {
+        pixiReady,
+        dataReady,
+        viewport: !!viewportRef.current,
+        selectedDino: !!selectedDinoRef.current,
+        ownPosition: !!ownPositionRef.current
+      });
       return;
     }
 
@@ -153,8 +171,8 @@ export default function MapPage() {
 
     let sprite = spritesRef.current.get(currentDinoId);
     if (!sprite) {
-      const stage = (selectedDino.stage || 'baby').toLowerCase();
-      const species = (selectedDino.species_key || 'raptor').toLowerCase();
+      const stage = (selectedDinoRef.current.stage || 'baby').toLowerCase();
+      const species = (selectedDinoRef.current.species_key || 'raptor').toLowerCase();
       const path = `/sprites/templates/${species}_${stage}_sprite.png`;
       console.log(`🦕 Creating own dino sprite: ${path}`);
 
@@ -166,10 +184,10 @@ export default function MapPage() {
       console.log("✅ Own sprite added to viewport");
     }
 
-    sprite.x = ownPosition.x;
-    sprite.y = ownPosition.y;
-    console.log(`📍 Own dino position updated to (${ownPosition.x}, ${ownPosition.y})`);
-  }, [pixiReady, selectedDino, currentDinoId, ownPosition]);
+    sprite.x = ownPositionRef.current.x;
+    sprite.y = ownPositionRef.current.y;
+    console.log(`📍 Own dino position updated to (${ownPositionRef.current.x}, ${ownPositionRef.current.y})`);
+  }, [pixiReady, dataReady, currentDinoId]);
 
   useEffect(() => {
     if (!pixiContainerRef.current || !instanceId) return;
@@ -217,7 +235,7 @@ export default function MapPage() {
     }
 
     console.log('✅ PIXI + MAP LOADED');
-    setPixiReady(true);   // This triggers the own dino effect
+    setPixiReady(true);
   };
 
   const updateDinoSprites = (nearbyData: any[]) => {
