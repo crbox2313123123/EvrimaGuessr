@@ -104,17 +104,17 @@ export default function MapPage() {
       pixiContainerRef.current!.appendChild(app.canvas);
       console.log('✅ app.canvas appended');
 
-      // Preload map image to avoid cache warning
-      await PIXI.Assets.load('/islemap.png');
-      console.log('✅ /islemap.png preloaded');
+      // Correct Pixi v8 way
+      console.log('📥 Loading map texture...');
+      const texture = await PIXI.Assets.load('/islemap.png');
+      console.log('✅ /islemap.png loaded successfully');
 
-      const bg = PIXI.Sprite.from('/islemap.png');
+      const bg = new PIXI.Sprite(texture);
       bg.anchor.set(0.5);
       bg.position.set(1250, 1000);
       app.stage.addChild(bg);
-      console.log('✅ Background added');
+      console.log('✅ Background added to stage');
 
-      // Update sprites once everything is ready
       updateDinoSprites(players);
     } catch (e) {
       console.error('❌ initPixi failed', e);
@@ -163,7 +163,7 @@ export default function MapPage() {
       sprite.y = ownPosition.y;
     }
 
-    // Nearby
+    // Nearby dinos (ready for future behavior updates)
     nearbyData.forEach((p) => {
       const id = p.dino_id;
       if (!id || id === currentDinoId) return;
@@ -181,13 +181,6 @@ export default function MapPage() {
       sprite.x = p.position_x;
       sprite.y = p.position_y;
     });
-  };
-
-  const setupRealtime = () => {
-    if (channelRef.current) return;
-    const channel = supabase.channel(`map-presence:${instanceId}`);
-    channel.on('postgres_changes', { event: '*', schema: 'public', table: 'evrima_player_presence' }, loadPlayers).subscribe();
-    channelRef.current = channel;
   };
 
   const cleanup = () => {
