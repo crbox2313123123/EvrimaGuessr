@@ -24,11 +24,6 @@ export default function MapPage() {
   const spritesRef = useRef<Map<string, PIXI.Sprite>>(new Map());
   const channelRef = useRef<any>(null);
 
-  // For Paper Mario flip + tilt
-  const lastOwnX = useRef<number>(1250);
-  const lastOwnY = useRef<number>(1000);
-  const flipCooldown = useRef<number>(0);
-
   const round = (val: any) => Math.round(Number(val) || 0);
 
   useEffect(() => {
@@ -94,12 +89,17 @@ export default function MapPage() {
   }, [instanceId, currentUserId, currentDinoId]);
 
   const loadPlayers = async () => {
+    console.log("🔍 loadPlayers called with:", { instanceId, currentUserId, currentDinoId });
+
     const { data, error } = await supabase.rpc('get_nearby_dinos', {
       p_instance_id: instanceId,
       p_observer_user_id: currentUserId,
       p_observer_dino_id: currentDinoId,
       p_reveal_radius: 200
     });
+
+    console.log("players:", data);
+    console.log("rpc error:", error);
 
     setPlayers(data || []);
 
@@ -111,6 +111,9 @@ export default function MapPage() {
 
     if (entity) {
       setOwnPosition({ x: entity.position_x, y: entity.position_y });
+      console.log(`📍 Own real position loaded: (${entity.position_x}, ${entity.position_y})`);
+    } else {
+      console.log("❌ No entity row found for own dino!");
     }
 
     updateDinoSprites(data || []);
@@ -136,9 +139,11 @@ export default function MapPage() {
     channelRef.current = channel;
   };
 
-  // Reactive own dino sprite (full GPT architecture)
+  // Core reactive own dino sprite (reliable rehydration on refresh)
   useEffect(() => {
     if (!viewportRef.current || !selectedDino || !currentDinoId || !ownPosition) return;
+
+    console.log("🔄 Reactive own dino effect triggered - creating/updating sprite");
 
     const viewport = viewportRef.current;
 
@@ -147,30 +152,19 @@ export default function MapPage() {
       const stage = (selectedDino.stage || 'baby').toLowerCase();
       const species = (selectedDino.species_key || 'raptor').toLowerCase();
       const path = `/sprites/templates/${species}_${stage}_sprite.png`;
+      console.log(`🦕 Creating own dino sprite: ${path}`);
 
       sprite = PIXI.Sprite.from(path);
       sprite.anchor.set(0.5);
       sprite.scale.set(0.9);
       viewport.addChild(sprite);
       spritesRef.current.set(currentDinoId, sprite);
+      console.log("✅ Own sprite added to viewport");
     }
-
-    // Paper Mario flip with cooldown
-    const dx = ownPosition.x - lastOwnX.current;
-    if (Math.abs(dx) > 3 && Date.now() > flipCooldown.current) {
-      sprite.scale.x = dx > 0 ? 0.9 : -0.9;
-      flipCooldown.current = Date.now() + 250;
-    }
-    lastOwnX.current = ownPosition.x;
-
-    // Subtle walking tilt
-    const dy = ownPosition.y - lastOwnY.current;
-    const tilt = Math.sin(Date.now() / 200) * 0.03 * Math.min(Math.abs(dy) / 10, 1);
-    sprite.rotation = tilt;
-    lastOwnY.current = ownPosition.y;
 
     sprite.x = ownPosition.x;
     sprite.y = ownPosition.y;
+    console.log(`📍 Own dino position updated to (${ownPosition.x}, ${ownPosition.y})`);
   }, [selectedDino, currentDinoId, ownPosition]);
 
   useEffect(() => {
@@ -205,7 +199,7 @@ export default function MapPage() {
     ];
     await PIXI.Assets.load(spritePaths).catch(() => {});
 
-    // Background (added last)
+    // Background added last (sprites on top)
     try {
       const texture = await PIXI.Assets.load('/islemap.png');
       const bg = new PIXI.Sprite(texture);
@@ -213,48 +207,24 @@ export default function MapPage() {
       bg.x = 1250;
       bg.y = 1000;
       viewport.addChild(bg);
+      console.log('✅ MAP BACKGROUND LOADED at center (1250,1000)');
     } catch (err) {
       console.error('❌ MAP BACKGROUND FAILED', err);
     }
 
-    // Camera starts moderately zoomed in, centered on map
+    console.log('✅ PIXI + MAP LOADED');
+
+    // Camera start (moderately zoomed in, no edges)
     viewport.x = app.screen.width / 2 - 1250 * 0.8;
     viewport.y = app.screen.height / 2 - 1000 * 0.8;
     viewport.scale.set(0.8);
-
-    // Smooth zoom + pan to own dino
-    // (this will be triggered once ownPosition is ready)
-
-    // Controls
-    let isDragging = false;
-    let lastX = 0;
-    let lastY = 0;
-
-    app.canvas.addEventListener('pointerdown', (e) => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
-    app.canvas.addEventListener('pointermove', (e) => {
-      if (!isDragging) return;
-      viewport.x += e.clientX - lastX;
-      viewport.y += e.clientY - lastY;
-      lastX = e.clientX;
-      lastY = e.clientY;
-    });
-    app.canvas.addEventListener('pointerup', () => isDragging = false);
-    app.canvas.addEventListener('pointerleave', () => isDragging = false);
-
-    app.canvas.addEventListener('wheel', (e) => {
-      const factor = e.deltaY < 0 ? 1.1 : 0.9;
-      const mx = e.offsetX;
-      const my = e.offsetY;
-      viewport.scale.x *= factor;
-      viewport.scale.y *= factor;
-      viewport.x = mx - (mx - viewport.x) * factor;
-      viewport.y = my - (my - viewport.y) * factor;
-    });
   };
 
   const updateDinoSprites = (nearbyData: any[]) => {
     if (!viewportRef.current) return;
     const viewport = viewportRef.current;
+
+    console.log(`🔄 Updating sprites - nearby: ${nearbyData.length}`);
 
     nearbyData.forEach((item) => {
       const dinoId = item.dino_id.toString();
@@ -263,6 +233,7 @@ export default function MapPage() {
         const stage = (item.stage || 'baby').toLowerCase();
         const species = (item.species_key || 'raptor').toLowerCase();
         const path = `/sprites/templates/${species}_${stage}_sprite.png`;
+        console.log(`🦕 Creating nearby sprite: ${path}`);
         sprite = PIXI.Sprite.from(path);
         sprite.anchor.set(0.5);
         sprite.scale.set(0.8);
