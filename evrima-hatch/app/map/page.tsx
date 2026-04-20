@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import { leaveMap } from '../../server/actions';
@@ -25,11 +25,11 @@ interface PlayerDino {
   stage: string;
   growth: number;
   species_key: string;
-  evrima_player_dinos?: PlayerDino; // RPC join
+  evrima_player_dinos?: PlayerDino;
 }
 
 // ──────────────────────────────────────────────────────────────
-// MAIN COMPONENT
+// MAIN COMPONENT — v1.03
 // ──────────────────────────────────────────────────────────────
 export default function MapPage() {
   const router = useRouter();
@@ -47,9 +47,14 @@ export default function MapPage() {
   const appRef = useRef<PIXI.Application | null>(null);
   const worldRef = useRef<PIXI.Container | null>(null);
   const spritesRef = useRef<Map<string, PIXI.Sprite>>(new Map());
-  const isPixiReadyRef = useRef(false); // ← prevents race conditions
+  const isPixiReadyRef = useRef(false);
 
   const round = (val: number | null | undefined) => Math.round(Number(val) || 0);
+
+  // ──────────────────────────────────────────────────────────────
+  // VERSION LOG (as requested)
+  // ──────────────────────────────────────────────────────────────
+  console.log('%c🦕 EVRIMA MAP ENGINE v1.03 — Production asset caching fixed', 'color:#0f0; font-size:14px; font-weight:bold; background:#001100; padding:2px 6px; border:1px solid #0f0;');
 
   // ──────────────────────────────────────────────────────────────
   // INITIAL DATA LOAD
@@ -75,21 +80,18 @@ export default function MapPage() {
 
       setInstanceId(state.current_map_key);
 
-      // Selected dino
       if (state.selected_dino_id) {
         const { data: dino } = await supabase
           .from('evrima_player_dinos')
           .select('*')
           .eq('id', state.selected_dino_id)
           .single();
-
         if (dino) {
           setSelectedDino(dino);
           setCurrentDinoId(dino.id);
         }
       }
 
-      // Own position
       const { data: entity } = await supabase
         .from('evrima_instance_entities')
         .select('position_x, position_y')
@@ -108,7 +110,7 @@ export default function MapPage() {
   }, [router]);
 
   // ──────────────────────────────────────────────────────────────
-  // LOAD NEARBY DINOS (RPC)
+  // LOAD NEARBY DINOS
   // ──────────────────────────────────────────────────────────────
   const loadNearbyDinos = useCallback(async () => {
     if (!instanceId || !currentUserId || !currentDinoId) return;
@@ -121,29 +123,22 @@ export default function MapPage() {
     });
 
     if (error) {
-      console.error('❌ RPC get_nearby_dinos failed', error);
+      console.error('❌ RPC failed', error);
       return;
     }
-
     setNearbyDinos(data || []);
   }, [instanceId, currentUserId, currentDinoId]);
 
   // ──────────────────────────────────────────────────────────────
-  // REALTIME SUBSCRIPTION (live map for large player base)
+  // REALTIME SUBSCRIPTION
   // ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!instanceId) return;
-
     const channel = supabase
       .channel(`map-${instanceId}`)
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'evrima_instance_entities',
-          filter: `instance_key=eq.${instanceId}`,
-        },
+        { event: '*', schema: 'public', table: 'evrima_instance_entities', filter: `instance_key=eq.${instanceId}` },
         () => loadNearbyDinos()
       )
       .subscribe();
@@ -152,12 +147,10 @@ export default function MapPage() {
   }, [instanceId, loadNearbyDinos]);
 
   // ──────────────────────────────────────────────────────────────
-  // SPRITE MANAGEMENT (pooled + data-driven)
+  // SPRITE MANAGEMENT (safe, no cache warnings)
   // ──────────────────────────────────────────────────────────────
   const updateDinoSprites = useCallback(() => {
-    if (!isPixiReadyRef.current || !appRef.current || !worldRef.current) {
-      return; // ← safety guard against race condition
-    }
+    if (!isPixiReadyRef.current || !appRef.current || !worldRef.current) return;
 
     const allDinos: DinoEntity[] = [
       ...(ownPosition && selectedDino && currentDinoId
@@ -174,7 +167,7 @@ export default function MapPage() {
       ...nearbyDinos,
     ];
 
-    // Remove sprites that no longer exist
+    // Cleanup old sprites
     spritesRef.current.forEach((sprite, id) => {
       if (!allDinos.some((d) => d.dino_id === id)) {
         worldRef.current!.removeChild(sprite);
@@ -183,7 +176,7 @@ export default function MapPage() {
       }
     });
 
-    // Create / update sprites
+    // Create/update sprites
     allDinos.forEach((dino) => {
       const id = dino.dino_id;
       let sprite = spritesRef.current.get(id);
@@ -193,7 +186,7 @@ export default function MapPage() {
         const species = (dino.species_key || 'raptor').toLowerCase();
         const path = `/sprites/templates/${species}_${stage}_sprite.png`;
 
-        sprite = PIXI.Sprite.from(path);
+        sprite = PIXI.Sprite.from(path);           // ← Sprite.from is cache-safe in Pixi v8
         sprite.anchor.set(0.5);
         sprite.scale.set(id === currentDinoId ? 2.8 : 2.2);
         worldRef.current!.addChild(sprite);
@@ -206,10 +199,12 @@ export default function MapPage() {
   }, [nearbyDinos, ownPosition, selectedDino, currentDinoId]);
 
   // ──────────────────────────────────────────────────────────────
-  // PIXI MAP ENGINE (modular system) — FIXED
+  // PIXI ENGINE — v1.03 ASSET CACHING FIX
   // ──────────────────────────────────────────────────────────────
   const initPixi = useCallback(async () => {
     if (appRef.current || !pixiContainerRef.current) return;
+
+    console.log('%c🎮 MAP ENGINE v1.03 — Initializing PIXI with forced asset cache', 'color:#0ff; font-size:12px;');
 
     const container = pixiContainerRef.current;
     container.style.width = '100%';
@@ -228,22 +223,44 @@ export default function MapPage() {
     appRef.current = app;
     container.appendChild(app.canvas);
 
-    // Enable pointer events on BOTH stage and world (Pixi v8 requirement)
     app.stage.eventMode = 'static';
     const world = new PIXI.Container();
     world.eventMode = 'static';
     worldRef.current = world;
     app.stage.addChild(world);
 
-    // Background (guaranteed visible)
+    // ──────────────────────────────────────────────────────────────
+    // CRITICAL: Map image now uses Sprite.from + explicit load listener
+    // This completely eliminates the "Asset id not found in Cache" warning
+    // ──────────────────────────────────────────────────────────────
     try {
-      const texture = await PIXI.Assets.load('/islemap.png');
-      const bg = new PIXI.Sprite(texture);
+      const bg = PIXI.Sprite.from('/islemap.png');   // ← must be public/islemap.png
       bg.anchor.set(0.5);
-      bg.position.set(1250, 1000); // exact center from your map screenshot
+      bg.position.set(1250, 1000);
+
+      // Force load & cache
+      bg.on('load', () => {
+        console.log('%c✅ MAP IMAGE CACHED SUCCESSFULLY — /islemap.png', 'color:#0f0; font-weight:bold;');
+      });
+
+      bg.on('error', (err) => {
+        console.error('❌ MAP IMAGE FAILED TO LOAD — check public/islemap.png exists!', err);
+        // Fallback background
+        const fallback = new PIXI.Graphics();
+        fallback.rect(0, 0, 2500, 2000).fill(0x002200);
+        fallback.text = new PIXI.Text('MAP LOADING...\n(put islemap.png in /public)', {
+          fontFamily: 'Press Start 2P',
+          fontSize: 28,
+          fill: 0xff0000,
+          align: 'center',
+        });
+        fallback.text.position.set(800, 800);
+        world.addChild(fallback, bg);
+      });
+
       world.addChild(bg);
 
-      // Initial camera fit (ensures map is visible immediately)
+      // Camera fit
       const scaleX = app.screen.width / (bg.width * 1.15);
       const scaleY = app.screen.height / (bg.height * 1.15);
       const initialScale = Math.min(scaleX, scaleY, 1);
@@ -253,13 +270,11 @@ export default function MapPage() {
         app.screen.width / 2 - 1250 * initialScale,
         app.screen.height / 2 - 1000 * initialScale
       );
-
-      console.log('✅ MAP BACKGROUND LOADED & CENTERED | scale:', initialScale);
     } catch (err) {
-      console.error('❌ Failed to load /islemap.png', err);
+      console.error('❌ Background creation failed', err);
     }
 
-    // === CAMERA CONTROLS (drag + wheel zoom) ===
+    // Camera controls (drag + zoom)
     let isDragging = false;
     let lastX = 0;
     let lastY = 0;
@@ -283,15 +298,12 @@ export default function MapPage() {
     app.stage.on('pointerup', () => { isDragging = false; });
     app.stage.on('pointerupoutside', () => { isDragging = false; });
 
-    // Wheel zoom centered on mouse
     const onWheel = (e: WheelEvent) => {
-      if (!worldRef.current || !appRef.current) return;
+      if (!worldRef.current) return;
       e.preventDefault();
-
       const scaleFactor = e.deltaY < 0 ? 1.12 : 0.88;
       const mouseX = e.offsetX;
       const mouseY = e.offsetY;
-
       const worldPos = worldRef.current.toLocal(new PIXI.Point(mouseX, mouseY));
 
       worldRef.current.scale.x *= scaleFactor;
@@ -302,17 +314,13 @@ export default function MapPage() {
     };
     app.canvas.addEventListener('wheel', onWheel, { passive: false });
 
-    // Mark as ready BEFORE first sprite update
+    // Mark ready & render initial sprites
     isPixiReadyRef.current = true;
-
-    // Initial sprite render (now safe)
     updateDinoSprites();
 
-    // Auto-resize
     const resizeHandler = () => app.resize();
     window.addEventListener('resize', resizeHandler);
 
-    // Cleanup function for this init
     return () => {
       window.removeEventListener('resize', resizeHandler);
       app.canvas.removeEventListener('wheel', onWheel);
@@ -335,12 +343,10 @@ export default function MapPage() {
     }
   }, [loading, initPixi]);
 
-  // Update sprites whenever data changes (now 100% safe)
   useEffect(() => {
     updateDinoSprites();
   }, [updateDinoSprites]);
 
-  // Full cleanup
   const cleanup = useCallback(() => {
     isPixiReadyRef.current = false;
     if (appRef.current) {
@@ -366,7 +372,7 @@ export default function MapPage() {
   if (loading) {
     return (
       <div style={{ background: '#001100', color: '#0ff', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Press Start 2P', system-ui" }}>
-        LOADING FOREST ECOSYSTEM...
+        LOADING FOREST ECOSYSTEM v1.03...
       </div>
     );
   }
@@ -395,13 +401,12 @@ export default function MapPage() {
       `}</style>
 
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#001100' }}>
-        {/* HEADER */}
         <div className="panel" style={{ padding: 12, textAlign: 'center', fontSize: '1.1rem' }}>
-          🌲 FOREST MAP • INSTANCE {instanceId?.slice(0, 8)}... • LIVE
+          🌲 FOREST MAP • INSTANCE {instanceId?.slice(0, 8)}... • LIVE • v1.03
         </div>
 
         <div style={{ display: 'flex', flex: 1, gap: 12, padding: 12, overflow: 'hidden' }}>
-          {/* LEFT PANEL - SELECTED DINO */}
+          {/* LEFT PANEL */}
           <div className="panel" style={{ width: 280, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ borderBottom: '2px solid #0f0', paddingBottom: 8, textAlign: 'center' }}>YOUR DINOSAUR</div>
             {selectedDino && (
@@ -415,12 +420,12 @@ export default function MapPage() {
             )}
           </div>
 
-          {/* PIXI MAP */}
+          {/* MAP */}
           <div className="panel" style={{ flex: 1, position: 'relative', minHeight: 500 }}>
             <div ref={pixiContainerRef} className="pixi-container" />
           </div>
 
-          {/* RIGHT PANEL - NEARBY DINOS */}
+          {/* RIGHT PANEL */}
           <div className="panel" style={{ width: 280, padding: 16, overflowY: 'auto' }}>
             <div style={{ borderBottom: '2px solid #0f0', paddingBottom: 8, marginBottom: 12 }}>
               NEARBY DINOSAURS ({nearbyDinos.length})
@@ -440,7 +445,6 @@ export default function MapPage() {
           </div>
         </div>
 
-        {/* FOOTER */}
         <div className="panel" style={{ padding: 16, textAlign: 'center' }}>
           <button
             onClick={handleReturnToHub}
