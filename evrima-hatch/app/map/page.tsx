@@ -17,6 +17,7 @@ export default function MapPage() {
   const [ownPosition, setOwnPosition] = useState<{ x: number; y: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pixiReady, setPixiReady] = useState(false);
 
   const pixiContainerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
@@ -139,9 +140,12 @@ export default function MapPage() {
     channelRef.current = channel;
   };
 
-  // Core reactive own dino sprite (reliable rehydration on refresh)
+  // ROBUST OWN DINO CREATION - runs when viewport AND data are ready
   useEffect(() => {
-    if (!viewportRef.current || !selectedDino || !currentDinoId || !ownPosition) return;
+    if (!pixiReady || !viewportRef.current || !selectedDino || !currentDinoId || !ownPosition) {
+      console.log("⏳ Own dino effect waiting - pixiReady:", pixiReady, "selectedDino:", !!selectedDino, "ownPosition:", !!ownPosition);
+      return;
+    }
 
     console.log("🔄 Reactive own dino effect triggered - creating/updating sprite");
 
@@ -165,7 +169,7 @@ export default function MapPage() {
     sprite.x = ownPosition.x;
     sprite.y = ownPosition.y;
     console.log(`📍 Own dino position updated to (${ownPosition.x}, ${ownPosition.y})`);
-  }, [selectedDino, currentDinoId, ownPosition]);
+  }, [pixiReady, selectedDino, currentDinoId, ownPosition]);
 
   useEffect(() => {
     if (!pixiContainerRef.current || !instanceId) return;
@@ -189,7 +193,7 @@ export default function MapPage() {
     app.stage.addChild(viewport);
     viewportRef.current = viewport;
 
-    // Preload sprites
+    // Preload
     const spritePaths = [
       '/sprites/templates/raptor_baby_sprite.png',
       '/sprites/templates/raptor_juvenile_sprite.png',
@@ -199,7 +203,7 @@ export default function MapPage() {
     ];
     await PIXI.Assets.load(spritePaths).catch(() => {});
 
-    // Background added last (sprites on top)
+    // Background last
     try {
       const texture = await PIXI.Assets.load('/islemap.png');
       const bg = new PIXI.Sprite(texture);
@@ -213,11 +217,7 @@ export default function MapPage() {
     }
 
     console.log('✅ PIXI + MAP LOADED');
-
-    // Camera start (moderately zoomed in, no edges)
-    viewport.x = app.screen.width / 2 - 1250 * 0.8;
-    viewport.y = app.screen.height / 2 - 1000 * 0.8;
-    viewport.scale.set(0.8);
+    setPixiReady(true);   // This triggers the own dino effect
   };
 
   const updateDinoSprites = (nearbyData: any[]) => {
