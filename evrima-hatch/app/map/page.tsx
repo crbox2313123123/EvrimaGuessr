@@ -74,7 +74,7 @@ export default function MapPage() {
 
       await loadPlayers();
       setLoading(false);
-      console.log('✅ Data loaded - calling initPixi');
+      console.log('✅ Data loaded - starting Pixi');
     } catch (err: any) {
       console.error('❌ DATA INIT FAILED', err);
       setError(err.message);
@@ -82,51 +82,117 @@ export default function MapPage() {
     }
   };
 
-  // Pixi only starts AFTER loading=false AND ref exists
   useEffect(() => {
     if (loading || !pixiContainerRef.current) return;
     initPixi();
   }, [loading]);
 
   const initPixi = async () => {
-    console.log('🎮 initPixi() CALLED - using modern Pixi v8 style');
+    console.log('🎮 initPixi() CALLED');
 
     if (appRef.current) return;
 
     try {
       const app = new PIXI.Application();
       await app.init({
-        backgroundColor: 0x00ff00,   // BRIGHT GREEN - proof Pixi is alive
+        backgroundColor: 0x001100,
         resizeTo: pixiContainerRef.current!,
         antialias: true,
       });
 
       appRef.current = app;
-
       pixiContainerRef.current!.appendChild(app.canvas);
-      console.log('✅ app.canvas appended successfully');
+      console.log('✅ app.canvas appended');
 
-      // Background
+      // Preload map image to avoid cache warning
+      await PIXI.Assets.load('/islemap.png');
+      console.log('✅ /islemap.png preloaded');
+
       const bg = PIXI.Sprite.from('/islemap.png');
       bg.anchor.set(0.5);
       bg.position.set(1250, 1000);
       app.stage.addChild(bg);
-      console.log('✅ Background image added');
+      console.log('✅ Background added');
 
-      console.log('🎉 MAP SHOULD BE VISIBLE NOW');
+      // Update sprites once everything is ready
+      updateDinoSprites(players);
     } catch (e) {
-      console.error('❌ initPixi CRASHED', e);
+      console.error('❌ initPixi failed', e);
     }
   };
 
   const loadPlayers = async () => {
+    if (!instanceId || !currentUserId || !currentDinoId) return;
     console.log('🔍 loadPlayers called');
-    setPlayers([]);
+
+    const { data, error } = await supabase.rpc('get_nearby_dinos', {
+      p_instance_id: instanceId,
+      p_observer_user_id: currentUserId,
+      p_observer_dino_id: currentDinoId,
+      p_reveal_radius: 200,
+    });
+
+    if (error) {
+      console.error('❌ RPC error', error);
+      return;
+    }
+
+    setPlayers(data || []);
+    updateDinoSprites(data || []);
+  };
+
+  const updateDinoSprites = (nearbyData: any[]) => {
+    if (!appRef.current) return;
+
+    // Own dino
+    if (selectedDino && currentDinoId && ownPosition) {
+      let sprite = spritesRef.current.get(currentDinoId);
+      if (!sprite) {
+        const stage = selectedDino.stage?.toLowerCase() || 'baby';
+        const species = selectedDino.species_key?.toLowerCase() || 'raptor';
+        const path = `/sprites/templates/${species}_${stage}_sprite.png`;
+
+        sprite = PIXI.Sprite.from(path);
+        sprite.anchor.set(0.5);
+        sprite.scale.set(2.5);
+        appRef.current.stage.addChild(sprite);
+        spritesRef.current.set(currentDinoId, sprite);
+        console.log(`🦕 Own dino sprite created: ${path}`);
+      }
+      sprite.x = ownPosition.x;
+      sprite.y = ownPosition.y;
+    }
+
+    // Nearby
+    nearbyData.forEach((p) => {
+      const id = p.dino_id;
+      if (!id || id === currentDinoId) return;
+      let sprite = spritesRef.current.get(id);
+      if (!sprite) {
+        const stage = p.stage?.toLowerCase() || 'baby';
+        const species = p.species_key?.toLowerCase() || 'raptor';
+        const path = `/sprites/templates/${species}_${stage}_sprite.png`;
+        sprite = PIXI.Sprite.from(path);
+        sprite.anchor.set(0.5);
+        sprite.scale.set(2);
+        appRef.current!.stage.addChild(sprite);
+        spritesRef.current.set(id, sprite);
+      }
+      sprite.x = p.position_x;
+      sprite.y = p.position_y;
+    });
+  };
+
+  const setupRealtime = () => {
+    if (channelRef.current) return;
+    const channel = supabase.channel(`map-presence:${instanceId}`);
+    channel.on('postgres_changes', { event: '*', schema: 'public', table: 'evrima_player_presence' }, loadPlayers).subscribe();
+    channelRef.current = channel;
   };
 
   const cleanup = () => {
     console.log('🧹 Cleanup');
-    if (appRef.current) appRef.current.destroy(true);
+    appRef.current?.destroy(true);
   };
 
   const handleReturnToHub = async () => {
@@ -134,9 +200,8 @@ export default function MapPage() {
     router.push('/hub');
   };
 
-  if (loading) {
-    return <div style={{ background: '#001100', color: '#0ff', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>LOADING FOREST MAP...</div>;
-  }
+  if (loading) return <div style={{ background: '#001100', color: '#0ff', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>LOADING FOREST MAP...</div>;
+  if (error) return <div style={{ color: '#f44', padding: 40 }}>ERROR: {error}</div>;
 
   return (
     <>
@@ -167,8 +232,11 @@ export default function MapPage() {
           </div>
 
           <div className="panel" style={{ width: 280, padding: 16 }}>
-            <div style={{ borderBottom: '2px solid #0f0', paddingBottom: 8 }}>OTHER DINOS (0)</div>
-            <div style={{ opacity: 0.5, textAlign: 'center', padding: 40 }}>NO OTHER PLAYERS YET</div>
+            <div style={{ borderBottom: '2px solid #0f0', paddingBottom: 8 }}>OTHER DINOS ({players.length})</div>
+            {players.length ? players.map((p, i) => {
+              const d = p.evrima_player_dinos || p;
+              return <div key={i} style={{ padding: '10px 0', borderBottom: '1px dotted #0f0' }}>{d ? `${d.dino_name} • ${d.stage} • ${round(d.growth)}%` : 'Unknown'}</div>;
+            }) : <div style={{ opacity: 0.5, textAlign: 'center', padding: 40 }}>NO OTHER PLAYERS YET</div>}
           </div>
         </div>
 
